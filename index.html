@@ -1816,9 +1816,11 @@ function renderLibRef() {
 // ════════════════════════════════════════════════════════════════════════════
 
 const SCH = {
-  STR_W: 130, STR_H: 86,
+  STR_W: 130, STR_H: 86,                                  // single-string box
+  STR_SUB_W: 100, STR_SUB_H: 76, STR_SUB_SPACING: 14,     // parallel sub-string box
+  COMB_BOX_W: 150, COMB_BOX_H: 52, COMB_GAP: 30,          // auto-combiner under parallel strings
   INV_W: 200, INV_H: 110,
-  CMB_W: 110, CMB_H: 60,
+  CMB_W: 110, CMB_H: 60,                                  // standalone (visual-only) combiner
   PORT_R: 6,
   GRID: 20,
   NS: 'http://www.w3.org/2000/svg',
@@ -1878,6 +1880,19 @@ function mpptPortPos(invDef, mpptIdx, inv) {
   return { x: inv.x + spacing * mpptIdx, y: inv.y };
 }
 
+// Returns the bottom-center output point of a string group — the point that
+// connects to the MPPT input. For multi-string groups, this is the combiner
+// bottom; for single-string groups, this is the string-box bottom.
+function getGroupOutputPoint(g) {
+  if (g.numStrings <= 1) {
+    return { x: g.x + SCH.STR_W / 2, y: g.y + SCH.STR_H };
+  }
+  const totalStringsW = g.numStrings * SCH.STR_SUB_W + (g.numStrings - 1) * SCH.STR_SUB_SPACING;
+  const combX = (totalStringsW - SCH.COMB_BOX_W) / 2;
+  const combY = SCH.STR_SUB_H + SCH.COMB_GAP;
+  return { x: g.x + combX + SCH.COMB_BOX_W / 2, y: g.y + combY + SCH.COMB_BOX_H };
+}
+
 function el(tag, attrs = {}, html = '') {
   const e = document.createElementNS(SCH.NS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -1906,7 +1921,8 @@ function renderSchematic() {
     'data-action': 'canvas'
   }));
 
-  // Connections (drawn first so they're behind nodes)
+  // Connections (drawn first so they're behind nodes).
+  // For multi-string groups, this is from the combiner bottom; otherwise from the string box bottom.
   for (const g of state.groups) {
     if (g.inverterId == null) continue;
     const inv = state.inverters.find(x => x.id === g.inverterId);
@@ -1915,11 +1931,10 @@ function renderSchematic() {
     const port = mpptPortPos(invDef, Math.min(g.mpptIndex, invDef.mpptCount), inv);
     const r = calcGroup(g);
     const lineColor = r.valid ? '#f4a426' : '#e74c3c';
-    const fromX = g.x + SCH.STR_W / 2;
-    const fromY = g.y + SCH.STR_H;
-    const midY = (fromY + port.y) / 2;
+    const out = getGroupOutputPoint(g);
+    const midY = (out.y + port.y) / 2;
     const path = el('path', {
-      d: `M ${fromX} ${fromY} C ${fromX} ${midY}, ${port.x} ${midY}, ${port.x} ${port.y}`,
+      d: `M ${out.x} ${out.y} C ${out.x} ${midY}, ${port.x} ${midY}, ${port.x} ${port.y}`,
       stroke: lineColor,
       'stroke-width': 2.5,
       'stroke-dasharray': r.valid ? '0' : '6 4',
@@ -1945,26 +1960,90 @@ function renderSchematic() {
     svg.appendChild(g);
   }
 
-  // String group nodes
+  // String group nodes — single-string OR multi-string (with auto combiner)
   for (const g of state.groups) {
     const r = calcGroup(g);
     const isPending = connectPending && connectPending.id === g.id;
     const stroke = isPending ? '#27ae60' : (r.valid ? '#f4a426' : '#e74c3c');
+    const panelShortName = r.panel.name.replace('SunGold ', '');
+    let inner = '';
+
+    if (g.numStrings <= 1) {
+      // ── Single-string box (no combiner needed) ──
+      inner = `
+        <rect width="${SCH.STR_W}" height="${SCH.STR_H}" rx="6" fill="#162335" stroke="${stroke}" stroke-width="2"/>
+        <rect x="6" y="6" width="${SCH.STR_W - 12}" height="14" rx="3" fill="${stroke}" opacity="0.18"/>
+        <text x="${SCH.STR_W/2}" y="17" text-anchor="middle" fill="${stroke}" font-size="10" font-weight="700" font-family="Arial">${g.label}</text>
+        <text x="${SCH.STR_W/2}" y="34" text-anchor="middle" fill="#e8edf3" font-size="9" font-family="Arial">${panelShortName.slice(0, 22)}</text>
+        <text x="${SCH.STR_W/2}" y="48" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">1 str × ${g.panelsPerString} pnl</text>
+        <text x="${SCH.STR_W/2}" y="62" text-anchor="middle" fill="#f7bf6a" font-size="10" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
+        <text x="${SCH.STR_W/2}" y="${SCH.STR_H - 6}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${r.invDef ? `→ ${r.invDef.label} M${g.mpptIndex}` : '⚠ unassigned'}</text>
+      `;
+    } else {
+      // ── Multi-string: N parallel string boxes → combiner → MPPT ──
+      const subW    = SCH.STR_SUB_W;
+      const subH    = SCH.STR_SUB_H;
+      const spacing = SCH.STR_SUB_SPACING;
+      const combW   = SCH.COMB_BOX_W;
+      const combH   = SCH.COMB_BOX_H;
+      const totalStringsW = g.numStrings * subW + (g.numStrings - 1) * spacing;
+      const combX = (totalStringsW - combW) / 2;
+      const combY = subH + SCH.COMB_GAP;
+      const singleStrKw = g.panelsPerString * r.panel.pmax / 1000;
+
+      // Group title above all strings
+      const title = `<text x="${totalStringsW/2}" y="-7" text-anchor="middle" fill="${stroke}" font-size="11" font-weight="700" font-family="Arial">${g.label}${r.invDef ? ` → ${r.invDef.label} M${g.mpptIndex}` : ' ⚠ unassigned'}</text>`;
+
+      // Internal connection lines: each string bottom → combiner top
+      let internalLines = '';
+      for (let i = 0; i < g.numStrings; i++) {
+        const sx = i * (subW + spacing) + subW / 2;
+        const sy = subH;
+        const cx = combX + (combW / (g.numStrings + 1)) * (i + 1);
+        const cy = combY;
+        const midY = (sy + cy) / 2;
+        internalLines += `<path d="M ${sx} ${sy} L ${sx} ${midY} L ${cx} ${midY} L ${cx} ${cy}" stroke="${stroke}" stroke-width="1.5" fill="none" opacity="0.75"/>`;
+        internalLines += `<circle cx="${cx}" cy="${cy}" r="3" fill="${stroke}"/>`;
+      }
+
+      // Parallel string boxes
+      let stringBoxes = '';
+      for (let i = 0; i < g.numStrings; i++) {
+        const sx = i * (subW + spacing);
+        stringBoxes += `
+          <g transform="translate(${sx},0)">
+            <rect width="${subW}" height="${subH}" rx="5" fill="#162335" stroke="${stroke}" stroke-width="1.5"/>
+            <rect x="4" y="4" width="${subW - 8}" height="12" rx="2" fill="${stroke}" opacity="0.18"/>
+            <text x="${subW/2}" y="14" text-anchor="middle" fill="${stroke}" font-size="9" font-weight="700" font-family="Arial">String ${i + 1}</text>
+            <text x="${subW/2}" y="30" text-anchor="middle" fill="#e8edf3" font-size="8" font-family="Arial">${panelShortName.slice(0, 18)}</text>
+            <text x="${subW/2}" y="44" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${g.panelsPerString} pnl in series</text>
+            <text x="${subW/2}" y="58" text-anchor="middle" fill="#f7bf6a" font-size="9" font-weight="600" font-family="Arial">${fmt(singleStrKw, 2)} kW</text>
+            <text x="${subW/2}" y="${subH - 5}" text-anchor="middle" fill="#8fa3bc" font-size="7" font-family="Arial">Isc ${fmt(r.stringIsc, 1)}A · Voc ${fmt(r.stringVoc, 0)}V</text>
+          </g>
+        `;
+      }
+
+      // Combiner box (auto-generated for parallel strings)
+      const combiner = `
+        <g transform="translate(${combX},${combY})">
+          <rect width="${combW}" height="${combH}" rx="6" fill="#243b55" stroke="${stroke}" stroke-width="2"/>
+          <rect x="4" y="4" width="${combW - 8}" height="13" rx="2" fill="${stroke}" opacity="0.22"/>
+          <text x="${combW/2}" y="14" text-anchor="middle" fill="${stroke}" font-size="9" font-weight="700" font-family="Arial">⚡ COMBINER  (${g.numStrings} strings ∥)</text>
+          <text x="${combW/2}" y="30" text-anchor="middle" fill="#f7bf6a" font-size="10" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
+          <text x="${combW/2}" y="44" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">Isc ${fmt(r.mpptCurrentIsc, 1)}A · OCPD ${fmt(r.mpptCurrentNec, 1)}A (NEC ×1.25)</text>
+        </g>
+      `;
+
+      inner = title + internalLines + stringBoxes + combiner;
+    }
+
     const node = el('g', {
       transform: `translate(${g.x},${g.y})`,
       'data-type': 'group',
       'data-id': g.id,
       class: 'sch-node',
       style: `cursor:${currentTool === 'select' ? 'move' : 'pointer'}`
-    }, `
-      <rect width="${SCH.STR_W}" height="${SCH.STR_H}" rx="6" fill="#162335" stroke="${stroke}" stroke-width="2"/>
-      <rect x="6" y="6" width="${SCH.STR_W - 12}" height="14" rx="3" fill="${stroke}" opacity="0.18"/>
-      <text x="${SCH.STR_W/2}" y="17" text-anchor="middle" fill="${stroke}" font-size="10" font-weight="700" font-family="Arial">${g.label}</text>
-      <text x="${SCH.STR_W/2}" y="34" text-anchor="middle" fill="#e8edf3" font-size="9" font-family="Arial">${r.panel.name.replace('SunGold ', '').slice(0, 22)}</text>
-      <text x="${SCH.STR_W/2}" y="48" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${g.numStrings} str × ${g.panelsPerString} pnl</text>
-      <text x="${SCH.STR_W/2}" y="62" text-anchor="middle" fill="#f7bf6a" font-size="10" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
-      <text x="${SCH.STR_W/2}" y="${SCH.STR_H - 6}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${r.invDef ? `→ ${r.invDef.label} M${g.mpptIndex}` : '⚠ unassigned'}</text>
-    `);
+    }, inner);
     svg.appendChild(node);
   }
 
