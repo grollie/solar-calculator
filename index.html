@@ -686,14 +686,33 @@
     <div class="field">
       <label>Battery system</label>
       <select id="bat-model">
-        <option value="13.5,90,9500">Tesla Powerwall 3 (13.5 kWh, 90% DoD)</option>
-        <option value="10,90,8500">Tesla Powerwall 2 (10 kWh, 90% DoD)</option>
-        <option value="9.8,80,9000">LG RESU 10H (9.8 kWh, 80% DoD)</option>
-        <option value="16,90,12000">LG RESU Prime 16H (16 kWh, 90% DoD)</option>
-        <option value="10,80,8000">Generac PWRcell (10 kWh, 80% DoD)</option>
-        <option value="14.3,95,8000">EG4 14.3 kWh (LiFePO₄, 95% DoD)</option>
-        <option value="16,95,2995" selected>SunGold PowerMax 314 (16 kWh LFP, 51.2V × 314Ah, 95% DoD)</option>
-        <option value="custom">Custom…</option>
+        <optgroup label="SunGold Server-Rack LFP (48–51.2V)">
+          <option value="5.12,95,1090">SunGold SG48100P (5.12 kWh · 51.2V × 100Ah · 95% DoD)</option>
+          <option value="5.12,95,1150">SunGold SGH48100T self-heat (5.12 kWh · 51.2V × 100Ah · 95% DoD)</option>
+          <option value="4.8,100,1150">SunGold CoreX 5 Pro (4.8 kWh · 48V × 100Ah · 100% DoD)</option>
+        </optgroup>
+        <optgroup label="SunGold Wall-Mount LFP (48–51.2V)">
+          <option value="5.12,95,1130">SunGold SG48100M wall-mount (5.12 kWh · 95% DoD)</option>
+          <option value="4.8,100,1250">SunGold CoreX 5 Elite wall-mount (4.8 kWh · 100% DoD)</option>
+          <option value="10.24,95,2250">SunGold PowerWall X SG48200T (10.24 kWh · 51.2V × 200Ah · 95% DoD)</option>
+          <option value="16,95,2995" selected>SunGold PowerMax 314 outdoor (16 kWh · 51.2V × 314Ah · 95% DoD)</option>
+        </optgroup>
+        <optgroup label="SunGold Portable / 12–24V LFP">
+          <option value="1.2,95,295">SunGold 12V 100Ah LFP (1.2 kWh · 95% DoD)</option>
+          <option value="2.4,95,589">SunGold 12V 200Ah LFP (2.4 kWh · 95% DoD)</option>
+          <option value="2.4,90,589">SunGold 24V 100Ah LFP (2.4 kWh · 90% DoD)</option>
+        </optgroup>
+        <optgroup label="Other Manufacturers (reference)">
+          <option value="13.5,90,9500">Tesla Powerwall 3 (13.5 kWh · 90% DoD)</option>
+          <option value="10,90,8500">Tesla Powerwall 2 (10 kWh · 90% DoD)</option>
+          <option value="9.8,80,9000">LG RESU 10H (9.8 kWh · 80% DoD)</option>
+          <option value="16,90,12000">LG RESU Prime 16H (16 kWh · 90% DoD)</option>
+          <option value="10,80,8000">Generac PWRcell (10 kWh · 80% DoD)</option>
+          <option value="14.3,95,8000">EG4 14.3 kWh LFP (95% DoD)</option>
+        </optgroup>
+        <optgroup label="Custom">
+          <option value="custom">Custom…</option>
+        </optgroup>
       </select>
     </div>
     <div id="custom-bat-fields" style="display:none">
