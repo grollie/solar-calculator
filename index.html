@@ -859,39 +859,267 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 const PANELS = {
+  // ─── Generic / Reference ───
   'gen-400': {
     name: 'Generic 400W Mono',
     pmax: 400, voc: 49.0, vmp: 40.5, isc: 10.0, imp: 9.8,
-    cost: 200,
-    note: 'Standard residential monocrystalline'
+    cost: 200, category: 'Generic / Reference',
+    note: 'Standard residential monocrystalline (reference)'
   },
+  'gen-500': {
+    name: 'Generic 500W Mono',
+    pmax: 500, voc: 50.5, vmp: 42.0, isc: 13.5, imp: 12.5,
+    cost: 240, category: 'Generic / Reference',
+    note: 'High-power residential mono'
+  },
+  // ─── SunGold N-type Bifacial (SGN-) ───
   'sgn-450': {
     name: 'SunGold SGN-450-BDG5',
     pmax: 450, voc: 38.5, vmp: 32.1, isc: 14.85, imp: 14.02,
-    cost: 162,
+    cost: 162, category: 'SunGold N-type Bifacial',
     note: '450W bifacial N-type TopCon (half-cell)'
   },
   'sgn-590': {
     name: 'SunGold SGN-590-BDG1',
     pmax: 590, voc: 52.2, vmp: 44.4, isc: 14.45, imp: 13.30,
-    cost: 201,
-    note: '590W bifacial N-type (high-power)'
+    cost: 201, category: 'SunGold N-type Bifacial',
+    note: '590W bifacial N-type (M10)'
   },
-  'gen-500': {
-    name: 'Generic 500W Mono',
-    pmax: 500, voc: 50.5, vmp: 42.0, isc: 13.5, imp: 12.5,
-    cost: 240,
-    note: 'High-power residential mono'
+  'sgn-440-sw5': {
+    name: 'SunGold SGN-440-SW5',
+    pmax: 440, voc: 39.03, vmp: 33.48, isc: 13.73, imp: 13.15,
+    cost: 697, category: 'SunGold N-type Bifacial',
+    note: '440W mono black N-type (M10)'
   },
+  // ─── SunGold PERC Bifacial (SGP-) ───
+  'sgp-415-bbs': {
+    name: 'SunGold SGP-415-BBS',
+    pmax: 415, voc: 37.79, vmp: 31.94, isc: 13.72, imp: 13.01,
+    cost: 693, category: 'SunGold PERC Bifacial',
+    note: '415W bifacial PERC mono (M10)'
+  },
+  'sgp-560-sbd': {
+    name: 'SunGold SGP-560-SBD',
+    pmax: 560, voc: 49.76, vmp: 40.95, isc: 14.25, imp: 13.68,
+    cost: 878, category: 'SunGold PERC Bifacial',
+    note: '560W bifacial PERC mono (M10)'
+  },
+  'sg-560wbg': {
+    name: 'SunGold SG-560WBG',
+    pmax: 560, voc: 50.09, vmp: 42.1, isc: 14.09, imp: 13.3,
+    cost: 888, category: 'SunGold PERC Bifacial',
+    note: '560W bifacial N-type'
+  },
+  // ─── SunGold Mono PERC ───
+  'sg550wm': {
+    name: 'SunGold SG550WM',
+    pmax: 550, voc: 49.7, vmp: 41.00, isc: 14.03, imp: 13.45,
+    cost: 713, category: 'SunGold Mono PERC',
+    note: '550W PERC monocrystalline'
+  },
+  'sg500wm': {
+    name: 'SunGold SG500WM',
+    pmax: 500, voc: 44.36, vmp: 37.60, isc: 14.09, imp: 13.30,
+    cost: 803, category: 'SunGold Mono PERC',
+    note: '500W mono black PERC (182×91mm)'
+  },
+  'sg450wm': {
+    name: 'SunGold SG450WM',
+    pmax: 450, voc: 41.72, vmp: 34.2, isc: 13.82, imp: 13.16,
+    cost: 713, category: 'SunGold Mono PERC',
+    note: '450W PERC mono'
+  },
+  'sg415wm': {
+    name: 'SunGold SG415WM',
+    pmax: 415, voc: 38.32, vmp: 31.11, isc: 14.09, imp: 13.34,
+    cost: 679, category: 'SunGold Mono PERC',
+    note: '415W mono black 182×91mm'
+  },
+  'sg370wm': {
+    name: 'SunGold SG370WM',
+    pmax: 370, voc: 40.17, vmp: 33.2, isc: 11.81, imp: 11.15,
+    cost: 679, category: 'SunGold Mono PERC',
+    note: '370W mono black 182mm'
+  },
+  // ─── SunGold Small / 12-24V Class ───
+  'sg200wm': {
+    name: 'SunGold SG200WM',
+    pmax: 200, voc: 43.39, vmp: 36.16, isc: 5.86, imp: 5.53,
+    cost: 35, category: 'SunGold Small / Portable',
+    note: '200W mono — typically sold as 10-pack'
+  },
+  'sg100wm': {
+    name: 'SunGold SG100WM',
+    pmax: 100, voc: 22.1, vmp: 19.1, isc: 5.57, imp: 5.24,
+    cost: 83, category: 'SunGold Small / Portable',
+    note: '100W mono — typically sold as 2-pack'
+  },
+  // ─── Custom ───
   'custom': {
     name: 'Custom panel…',
     pmax: 400, voc: 49.0, vmp: 40.5, isc: 10.0, imp: 9.8,
-    cost: 200,
+    cost: 200, category: 'Custom',
     note: 'User-defined'
   }
 };
 
 const INVERTERS = {
+  // ═══ SunGold Hybrid · 48V LV battery ═══
+  'sgs-12k18max': {
+    name: 'SunGold SGS-12K18MAX',
+    ratedKw: 12.0, maxPvKw: 18.0,
+    maxVdc: 550, mpptMinV: 120, mpptMaxV: 450,
+    maxMpptCurrent: 32,
+    maxStrings: 4, cost: 2835,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Hybrid · 48V LV',
+    note: '12 kW MAX hybrid, 2 MPPTs, supports 18 kW PV, 550V DC max, 32A per MPPT'
+  },
+  'sgn11.4khb-48': {
+    name: 'SunGold SGN11.4KHB-48',
+    ratedKw: 11.4, maxPvKw: 15.0,
+    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxMpptCurrent: 18,
+    maxStrings: 3, cost: 2065,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Hybrid · 48V LV',
+    note: '11.4 kW 48V LV LiFePO4 split-phase hybrid'
+  },
+  'sgn-11k15pro': {
+    name: 'SunGold SGN-11K15PRO',
+    ratedKw: 11.4, maxPvKw: 15.0,
+    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxMpptCurrent: 18,
+    maxStrings: 3, cost: 3395,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Hybrid · 48V LV',
+    note: '11.4 kW whole-home backup 200A, 48V LV LiFePO4'
+  },
+  'sgn7.6k1hb-48': {
+    name: 'SunGold SGN7.6K1HB-48',
+    ratedKw: 7.6, maxPvKw: 12.0,
+    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxMpptCurrent: 18,
+    maxStrings: 3, cost: 2450,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Hybrid · 48V LV',
+    note: '7.6 kW hybrid, 48V LV LiFePO4 split-phase'
+  },
+  // ═══ SunGold Hybrid · HV battery ═══
+  'sg11.4khb-hv': {
+    name: 'SunGold SG11.4KHB-HV',
+    ratedKw: 11.4, maxPvKw: 18.0,
+    maxVdc: 600, mpptMinV: 150, mpptMaxV: 550,
+    maxMpptCurrent: 15,
+    maxStrings: 4, cost: 1990,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Hybrid · HV battery',
+    note: '11.4 kW hybrid, 120-500V HV LiFePO4'
+  },
+  // ═══ SunGold Off-Grid / Hybrid · 48V LV ═══
+  'sph10048p': {
+    name: 'SunGold SPH10048P (10kW)',
+    ratedKw: 10.0, maxPvKw: 13.0,
+    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxMpptCurrent: 22,
+    maxStrings: 4, cost: 1183,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · 48V',
+    note: '10 kW 48V LV split-phase, 2 MPPTs, 550V DC max, 22A per MPPT'
+  },
+  'sph8048p': {
+    name: 'SunGold SPH8048P (8kW)',
+    ratedKw: 8.0, maxPvKw: 10.0,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 80,
+    maxStrings: 2, cost: 1550,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · 48V',
+    note: '8 kW 48V split-phase off-grid'
+  },
+  'sph6548p': {
+    name: 'SunGold SPH6548P (6.5kW)',
+    ratedKw: 6.5, maxPvKw: 8.0,
+    maxVdc: 550, mpptMinV: 60, mpptMaxV: 500,
+    maxMpptCurrent: 80,
+    maxStrings: 2, cost: 1250,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · 48V',
+    note: '6.5 kW 48V hybrid; split-phase or 3-phase via parallel'
+  },
+  'sph5048p': {
+    name: 'SunGold SPH5048P (5kW)',
+    ratedKw: 5.0, maxPvKw: 5.5,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 100,
+    maxStrings: 1, cost: 689,
+    type: 'hybrid', acV: 120, mpptCount: 1,
+    category: 'SunGold Off-Grid · 48V',
+    note: '5 kW 48V single-phase 120V'
+  },
+  'fr12k-b': {
+    name: 'SunGold FR12K-B (12kW)',
+    ratedKw: 12.0, maxPvKw: 13.2,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 22,
+    maxStrings: 2, cost: 1950,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · 48V',
+    note: '12 kW 48V LiFePO4, split-phase'
+  },
+  // ═══ SunGold Off-Grid · Higher Power (parallel kits) ═══
+  'sph13048p': {
+    name: 'SunGold SPH13048P (13kW · 2× 6.5kW)',
+    ratedKw: 13.0, maxPvKw: 16.0,
+    maxVdc: 550, mpptMinV: 60, mpptMaxV: 500,
+    maxMpptCurrent: 80,
+    maxStrings: 2, cost: 2480,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · High Power',
+    note: '13 kW 48V LV split-phase (2× SPH6548P parallel)'
+  },
+  'sph16048p': {
+    name: 'SunGold SPH16048P (16kW · 2× 8kW)',
+    ratedKw: 16.0, maxPvKw: 20.0,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 80,
+    maxStrings: 2, cost: 3090,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · High Power',
+    note: '16 kW (2× 8K parallel), 48V LV split-phase / 3-phase'
+  },
+  'sph20048p': {
+    name: 'SunGold SPH20048P (20kW · 2× 10kW)',
+    ratedKw: 20.0, maxPvKw: 22.0,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 100,
+    maxStrings: 2, cost: 3360,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · High Power',
+    note: '20 kW (2× 10K parallel), 48V LV split-phase'
+  },
+  'sph10048p-2x': {
+    name: 'SunGold 10kW (2× SPH5048P parallel)',
+    ratedKw: 10.0, maxPvKw: 11.0,
+    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
+    maxMpptCurrent: 100,
+    maxStrings: 2, cost: 1518,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    category: 'SunGold Off-Grid · High Power',
+    note: '10 kW (2× SPH5048P parallel), 48V LV split-phase via parallel'
+  },
+  // ═══ SunGold Off-Grid · Lower Power ═══
+  'sph302480a': {
+    name: 'SunGold SPH302480A (3kW)',
+    ratedKw: 3.0, maxPvKw: 4.0,
+    maxVdc: 450, mpptMinV: 120, mpptMaxV: 400,
+    maxMpptCurrent: 80,
+    maxStrings: 1, cost: 413,
+    type: 'hybrid', acV: 120, mpptCount: 1,
+    category: 'SunGold Off-Grid · Lower Power',
+    note: '3 kW 24V lead-acid/lithium, 120V pure sine'
+  },
+  // ═══ Other Manufacturers (for comparison) ═══
   'sma-sb10': {
     name: 'SMA Sunny Boy 10.0-US',
     ratedKw: 10.0, maxPvKw: 15.0,
@@ -899,7 +1127,8 @@ const INVERTERS = {
     maxMpptCurrent: 20,
     maxStrings: 4, cost: 1800,
     type: 'string', acV: 240, mpptCount: 3,
-    note: 'String inverter, grid-tied'
+    category: 'Other (non-SunGold)',
+    note: 'Grid-tie string inverter (SMA)'
   },
   'solaredge-7600': {
     name: 'SolarEdge SE7600H-US',
@@ -908,25 +1137,8 @@ const INVERTERS = {
     maxMpptCurrent: 16,
     maxStrings: 2, cost: 1900,
     type: 'string', acV: 240, mpptCount: 1,
+    category: 'Other (non-SunGold)',
     note: 'HD-Wave, requires optimizers'
-  },
-  'sph10048p': {
-    name: 'SunGold SPH10048P',
-    ratedKw: 10.0, maxPvKw: 13.0,
-    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
-    maxMpptCurrent: 22,
-    maxStrings: 4, cost: 1183,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    note: '10 kW hybrid, 48V LV battery, split-phase, 2 MPPTs, 550V DC max, 22A per MPPT'
-  },
-  'sgs-12k18max': {
-    name: 'SunGold SGS-12K18MAX',
-    ratedKw: 12.0, maxPvKw: 18.0,
-    maxVdc: 550, mpptMinV: 120, mpptMaxV: 450,
-    maxMpptCurrent: 32,
-    maxStrings: 4, cost: 2835,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    note: '12 kW MAX hybrid, 2 MPPTs, supports 18 kW PV, 550V DC max, 32A per MPPT'
   },
   'enphase-iq8': {
     name: 'Enphase IQ8+ Microinverter',
@@ -935,8 +1147,10 @@ const INVERTERS = {
     maxMpptCurrent: 14,
     maxStrings: 1, cost: 200,
     type: 'micro', acV: 240, mpptCount: 1,
+    category: 'Other (non-SunGold)',
     note: 'Per-panel microinverter (1 per panel)'
   },
+  // ═══ Custom ═══
   'custom': {
     name: 'Custom inverter…',
     ratedKw: 10.0, maxPvKw: 15.0,
@@ -944,6 +1158,7 @@ const INVERTERS = {
     maxMpptCurrent: 25,
     maxStrings: 4, cost: 1800,
     type: 'string', acV: 240, mpptCount: 2,
+    category: 'Custom',
     note: 'User-defined'
   }
 };
@@ -1297,10 +1512,19 @@ function renderInverters() {
       mpptCells.push(`<span style="display:inline-block;padding:1px 5px;margin:1px;border-radius:3px;background:${used > 0 ? 'rgba(108,193,135,0.2)' : 'rgba(143,163,188,0.1)'};color:${used > 0 ? 'var(--green2)' : 'var(--muted)'};font-size:0.7rem">MPPT${i}: ${used}str</span>`);
     }
 
-    const modelOpts = Object.entries(INVERTERS).filter(([k]) => k !== 'custom').map(([k, v]) => {
-      const tag = v.type === 'hybrid' ? ' [hybrid]' : (v.type === 'micro' ? ' [micro]' : '');
-      return `<option value="${k}" ${k === invDef.model ? 'selected' : ''}>${v.name}${tag}</option>`;
-    }).join('');
+    // Build inverter <optgroup>s by category for the now-much-larger library
+    const invByCat = {};
+    for (const [k, v] of Object.entries(INVERTERS)) {
+      if (k === 'custom') continue;  // custom is an editing mode, not a real model
+      const c = v.category || 'Other';
+      (invByCat[c] = invByCat[c] || []).push({ k, v });
+    }
+    const modelOpts = Object.entries(invByCat).map(([cat, list]) =>
+      `<optgroup label="${cat}">` + list.map(({ k, v }) => {
+        const tag = v.type === 'hybrid' ? ' [hybrid]' : (v.type === 'micro' ? ' [micro]' : '');
+        return `<option value="${k}" ${k === invDef.model ? 'selected' : ''}>${v.name}${tag}</option>`;
+      }).join('') + `</optgroup>`
+    ).join('');
 
     const batCount  = invDef.batteryCount || 0;
     const batKwhStr = fmt(batCount * inp.batKwh, 1);
@@ -1390,8 +1614,16 @@ function renderGroups() {
     const card = document.createElement('div');
     card.className = 'group-card' + (r.valid ? '' : ' invalid');
 
-    const panelOpts = Object.entries(PANELS).map(([k, p]) =>
-      `<option value="${k}" ${k === g.panelKey ? 'selected' : ''}>${p.name} (${p.pmax}W)</option>`
+    // Build panel <optgroup>s by category for the now-much-larger library
+    const panelsByCat = {};
+    for (const [k, p] of Object.entries(PANELS)) {
+      const c = p.category || 'Other';
+      (panelsByCat[c] = panelsByCat[c] || []).push({ k, p });
+    }
+    const panelOpts = Object.entries(panelsByCat).map(([cat, list]) =>
+      `<optgroup label="${cat}">` + list.map(({ k, p }) =>
+        `<option value="${k}" ${k === g.panelKey ? 'selected' : ''}>${p.name} (${p.pmax}W)</option>`
+      ).join('') + `</optgroup>`
     ).join('');
 
     // "Assigned to" dropdown — list all physical inverters
