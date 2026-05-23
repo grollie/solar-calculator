@@ -787,6 +787,7 @@
             <button data-tool="add-combiner"  class="tool-btn"        title="Add a combiner box (visual only)">+ Combiner</button>
             <button data-tool="delete"        class="tool-btn"        title="Click a node to remove it">✕ Delete</button>
             <button id="schematic-fit"        class="tool-btn"        title="Auto-arrange components">⊞ Auto-Layout</button>
+            <button id="btn-view-mode"        class="tool-btn"        title="Toggle between block view (compact) and panel view (individual panels with + / - cables)">🔬 Panel View</button>
           </div>
         </div>
         <div id="schematic-status" class="schematic-status"></div>
@@ -1826,7 +1827,23 @@ const SCH = {
   PORT_R: 6,
   GRID: 20,
   NS: 'http://www.w3.org/2000/svg',
+
+  // ── Panel-view dimensions ───────────────────────────────────────────────
+  PANEL_W: 30, PANEL_H: 36,                               // individual panel cell
+  PANEL_GAP: 4,                                           // horizontal gap between panels in a string
+  PV_HEADER_H: 22,                                        // header strip on panel-view group box
+  PV_STR_VGAP: 18,                                        // vertical gap between parallel strings
+  PV_TERM_R: 5,                                           // +/- terminal radius
+  PV_PAD: 14,                                             // padding inside group box
+  PV_FOOTER_H: 24,                                        // footer (specs) on group box
+  PV_COMB_H: 44,                                          // auto-combiner in panel view
+  POS_COLOR: '#e74c3c',                                   // POSITIVE cable color (red)
+  NEG_COLOR: '#5dade2',                                   // NEGATIVE cable color (light blue)
+  SERIES_COLOR: '#f4a426',                                // series wire between panels (amber)
 };
+
+// Current view mode for the schematic — block (default) or panels
+let viewMode = 'block';
 
 let currentTool   = 'select';
 let connectPending = null;   // { id, label } when first-clicked a string while in connect mode
@@ -1947,12 +1964,46 @@ function getGroupOutputPoint(g) {
 
 // Visual bounding box of a string group (accounts for multi-string + combiner)
 function getGroupBounds(g) {
+  if (viewMode === 'panels') return getGroupBoundsPanelView(g);
   if (g.numStrings <= 1) {
     return { w: SCH.STR_W, h: SCH.STR_H };
   }
   const w = g.numStrings * SCH.STR_SUB_W + (g.numStrings - 1) * SCH.STR_SUB_SPACING;
   const h = SCH.STR_SUB_H + SCH.COMB_GAP + SCH.COMB_BOX_H;
   return { w, h };
+}
+
+// Bounds for a group in panel view — wide enough for the row of panels + terminals
+function getGroupBoundsPanelView(g) {
+  const panelsRowW = g.panelsPerString * SCH.PANEL_W + (g.panelsPerString - 1) * SCH.PANEL_GAP;
+  const stringW   = panelsRowW + 2 * (SCH.PV_TERM_R * 2 + 6);   // + terminals on each end
+  const innerW    = stringW + 2 * SCH.PV_PAD;
+  const stringsH  = g.numStrings * SCH.PANEL_H + (g.numStrings - 1) * SCH.PV_STR_VGAP;
+  const combH     = g.numStrings > 1 ? (SCH.PV_COMB_H + 28) : 0;
+  const innerH    = SCH.PV_HEADER_H + SCH.PV_PAD + stringsH + combH + SCH.PV_FOOTER_H + SCH.PV_PAD;
+  return { w: innerW, h: innerH };
+}
+
+// Returns the position of the +/- output terminals of a group in panel view
+// (relative to g.x/g.y). These are the points that connect to MPPT inputs.
+function getGroupTerminalsPanelView(g) {
+  const b = getGroupBoundsPanelView(g);
+  const stringsH = g.numStrings * SCH.PANEL_H + (g.numStrings - 1) * SCH.PV_STR_VGAP;
+  // For multi-string, terminals are on the combiner; for single-string, at the string ends.
+  if (g.numStrings <= 1) {
+    const stringY = SCH.PV_HEADER_H + SCH.PV_PAD + SCH.PANEL_H / 2;
+    return {
+      neg: { x: g.x + SCH.PV_PAD + SCH.PV_TERM_R, y: g.y + stringY },
+      pos: { x: g.x + b.w - SCH.PV_PAD - SCH.PV_TERM_R, y: g.y + stringY }
+    };
+  }
+  // Combiner outputs at bottom
+  const combY = SCH.PV_HEADER_H + SCH.PV_PAD + stringsH + 28 + SCH.PV_COMB_H;
+  const combCenterX = b.w / 2;
+  return {
+    neg: { x: g.x + combCenterX - 28, y: g.y + combY },
+    pos: { x: g.x + combCenterX + 28, y: g.y + combY }
+  };
 }
 
 function el(tag, attrs = {}, html = '') {
@@ -2003,25 +2054,44 @@ function renderSchematic() {
   }));
 
   // Connections (drawn first so they're behind nodes).
-  // For multi-string groups, this is from the combiner bottom; otherwise from the string box bottom.
+  // Block view: single amber bezier from group's combined output to MPPT.
+  // Panel view: TWO bezier paths — red (+) and blue (-) — to the MPPT's +/- terminals.
   for (const g of state.groups) {
     if (g.inverterId == null) continue;
     const inv = state.inverters.find(x => x.id === g.inverterId);
     if (!inv) continue;
     const invDef = INVERTERS[inv.model];
-    const port = mpptPortPos(invDef, Math.min(g.mpptIndex, invDef.mpptCount), inv);
     const r = calcGroup(g);
-    const lineColor = r.valid ? '#f4a426' : '#e74c3c';
-    const out = getGroupOutputPoint(g);
-    const midY = (out.y + port.y) / 2;
-    const path = el('path', {
-      d: `M ${out.x} ${out.y} C ${out.x} ${midY}, ${port.x} ${midY}, ${port.x} ${port.y}`,
-      stroke: lineColor,
-      'stroke-width': 2.5,
-      'stroke-dasharray': r.valid ? '0' : '6 4',
-      fill: 'none'
-    });
-    svg.appendChild(path);
+    const ok = r.valid;
+    const dash = ok ? '0' : '6 4';
+
+    if (viewMode === 'panels') {
+      const term = getGroupTerminalsPanelView(g);
+      const port = mpptPortPos(invDef, Math.min(g.mpptIndex, invDef.mpptCount), inv);
+      const portPos = { x: port.x + 8,  y: port.y };
+      const portNeg = { x: port.x - 8,  y: port.y };
+      const midYp = (term.pos.y + portPos.y) / 2;
+      const midYn = (term.neg.y + portNeg.y) / 2;
+      svg.appendChild(el('path', {
+        d: `M ${term.pos.x} ${term.pos.y} C ${term.pos.x} ${midYp}, ${portPos.x} ${midYp}, ${portPos.x} ${portPos.y}`,
+        stroke: SCH.POS_COLOR, 'stroke-width': 2.5, 'stroke-dasharray': dash, fill: 'none'
+      }));
+      svg.appendChild(el('path', {
+        d: `M ${term.neg.x} ${term.neg.y} C ${term.neg.x} ${midYn}, ${portNeg.x} ${midYn}, ${portNeg.x} ${portNeg.y}`,
+        stroke: SCH.NEG_COLOR, 'stroke-width': 2.5, 'stroke-dasharray': dash, fill: 'none'
+      }));
+    } else {
+      const port = mpptPortPos(invDef, Math.min(g.mpptIndex, invDef.mpptCount), inv);
+      const out = getGroupOutputPoint(g);
+      const midY = (out.y + port.y) / 2;
+      svg.appendChild(el('path', {
+        d: `M ${out.x} ${out.y} C ${out.x} ${midY}, ${port.x} ${midY}, ${port.x} ${port.y}`,
+        stroke: ok ? '#f4a426' : '#e74c3c',
+        'stroke-width': 2.5,
+        'stroke-dasharray': dash,
+        fill: 'none'
+      }));
+    }
   }
 
   // Combiners (visual only)
@@ -2049,7 +2119,119 @@ function renderSchematic() {
     const panelShortName = r.panel.name.replace('SunGold ', '');
     let inner = '';
 
-    if (g.numStrings <= 1) {
+    if (viewMode === 'panels') {
+      // ── PANEL VIEW: each panel rendered individually, with +/- terminals and series wire ──
+      const b = getGroupBoundsPanelView(g);
+      const panelsRowW = g.panelsPerString * SCH.PANEL_W + (g.panelsPerString - 1) * SCH.PANEL_GAP;
+      const stringW    = panelsRowW + 2 * (SCH.PV_TERM_R * 2 + 6);
+      const stringStartX = (b.w - stringW) / 2;
+      const stringsStartY = SCH.PV_HEADER_H + SCH.PV_PAD;
+
+      // Header strip
+      let body = `
+        <rect width="${b.w}" height="${b.h}" rx="7" fill="#162335" stroke="${stroke}" stroke-width="2"/>
+        <rect x="0" y="0" width="${b.w}" height="${SCH.PV_HEADER_H}" rx="7" fill="${stroke}" opacity="0.16"/>
+        <text x="${b.w/2}" y="14" text-anchor="middle" fill="${stroke}" font-size="11" font-weight="700" font-family="Arial">${g.label}${r.invDef ? ` → ${r.invDef.label} M${g.mpptIndex}` : ' ⚠'}</text>
+      `;
+
+      const singleStrKw = g.panelsPerString * r.panel.pmax / 1000;
+
+      // Render each parallel string
+      for (let s = 0; s < g.numStrings; s++) {
+        const stringY = stringsStartY + s * (SCH.PANEL_H + SCH.PV_STR_VGAP);
+        const panelsY = stringY;
+
+        // Negative terminal (left)
+        const negCx = stringStartX + SCH.PV_TERM_R;
+        const negCy = panelsY + SCH.PANEL_H / 2;
+        body += `<circle cx="${negCx}" cy="${negCy}" r="${SCH.PV_TERM_R}" fill="${SCH.NEG_COLOR}" stroke="#0d1b2a" stroke-width="1"/>`;
+        body += `<text x="${negCx}" y="${negCy + 3}" text-anchor="middle" fill="#0d1b2a" font-size="8" font-weight="700" font-family="Arial">−</text>`;
+
+        // Wire from neg terminal to first panel
+        const panelsStartX = stringStartX + SCH.PV_TERM_R * 2 + 6;
+        body += `<line x1="${negCx + SCH.PV_TERM_R}" y1="${negCy}" x2="${panelsStartX}" y2="${negCy}" stroke="${SCH.NEG_COLOR}" stroke-width="2"/>`;
+
+        // Panels
+        for (let i = 0; i < g.panelsPerString; i++) {
+          const px = panelsStartX + i * (SCH.PANEL_W + SCH.PANEL_GAP);
+          const py = panelsY;
+          // Panel cell — show wattage and small grid pattern
+          body += `
+            <g transform="translate(${px},${py})">
+              <rect width="${SCH.PANEL_W}" height="${SCH.PANEL_H}" rx="2" fill="#1a2d44" stroke="#5dade2" stroke-width="1"/>
+              <line x1="0" y1="${SCH.PANEL_H/2}" x2="${SCH.PANEL_W}" y2="${SCH.PANEL_H/2}" stroke="#5dade2" stroke-width="0.4" opacity="0.5"/>
+              <line x1="${SCH.PANEL_W/2}" y1="0" x2="${SCH.PANEL_W/2}" y2="${SCH.PANEL_H}" stroke="#5dade2" stroke-width="0.4" opacity="0.5"/>
+              <text x="${SCH.PANEL_W/2}" y="${SCH.PANEL_H/2 - 2}" text-anchor="middle" fill="#e8edf3" font-size="9" font-weight="700" font-family="Arial">${r.panel.pmax}</text>
+              <text x="${SCH.PANEL_W/2}" y="${SCH.PANEL_H/2 + 8}" text-anchor="middle" fill="#8fa3bc" font-size="6" font-family="Arial">W</text>
+              <text x="${SCH.PANEL_W/2}" y="${SCH.PANEL_H - 2}" text-anchor="middle" fill="#8fa3bc" font-size="6" font-family="Arial">#${i+1}</text>
+            </g>
+          `;
+          // Series wire to next panel (amber, except for the last panel)
+          if (i < g.panelsPerString - 1) {
+            const wireX1 = px + SCH.PANEL_W;
+            const wireX2 = px + SCH.PANEL_W + SCH.PANEL_GAP;
+            body += `<line x1="${wireX1}" y1="${negCy}" x2="${wireX2}" y2="${negCy}" stroke="${SCH.SERIES_COLOR}" stroke-width="2"/>`;
+          }
+        }
+
+        // Wire from last panel to positive terminal
+        const lastPanelEndX = panelsStartX + g.panelsPerString * SCH.PANEL_W + (g.panelsPerString - 1) * SCH.PANEL_GAP;
+        const posCx = lastPanelEndX + 6 + SCH.PV_TERM_R;
+        const posCy = panelsY + SCH.PANEL_H / 2;
+        body += `<line x1="${lastPanelEndX}" y1="${posCy}" x2="${posCx - SCH.PV_TERM_R}" y2="${posCy}" stroke="${SCH.POS_COLOR}" stroke-width="2"/>`;
+        body += `<circle cx="${posCx}" cy="${posCy}" r="${SCH.PV_TERM_R}" fill="${SCH.POS_COLOR}" stroke="#0d1b2a" stroke-width="1"/>`;
+        body += `<text x="${posCx}" y="${posCy + 3}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Arial">+</text>`;
+
+        // String label on the side
+        body += `<text x="${stringStartX - 4}" y="${panelsY + SCH.PANEL_H/2 + 3}" text-anchor="end" fill="#8fa3bc" font-size="8" font-family="Arial">S${s+1}</text>`;
+      }
+
+      // Multi-string: render combiner bus + combiner box
+      if (g.numStrings > 1) {
+        const stringsH  = g.numStrings * SCH.PANEL_H + (g.numStrings - 1) * SCH.PV_STR_VGAP;
+        const combY     = stringsStartY + stringsH + 28;
+        const combCenterX = b.w / 2;
+
+        // Compute bus positions
+        const firstStringY = stringsStartY + SCH.PANEL_H / 2;
+        const lastStringY  = stringsStartY + (g.numStrings - 1) * (SCH.PANEL_H + SCH.PV_STR_VGAP) + SCH.PANEL_H / 2;
+        const negBusX = stringStartX + SCH.PV_TERM_R;
+        const lastPanelEndX = stringStartX + SCH.PV_TERM_R * 2 + 6 + g.panelsPerString * SCH.PANEL_W + (g.panelsPerString - 1) * SCH.PANEL_GAP;
+        const posBusX = lastPanelEndX + 6 + SCH.PV_TERM_R;
+
+        // Vertical NEG bus (left side, blue)
+        body += `<line x1="${negBusX}" y1="${firstStringY}" x2="${negBusX}" y2="${combY + SCH.PV_COMB_H/2}" stroke="${SCH.NEG_COLOR}" stroke-width="2" stroke-dasharray="3 2"/>`;
+        body += `<line x1="${negBusX}" y1="${combY + SCH.PV_COMB_H/2}" x2="${combCenterX - 28}" y2="${combY + SCH.PV_COMB_H/2}" stroke="${SCH.NEG_COLOR}" stroke-width="2" stroke-dasharray="3 2"/>`;
+        // Vertical POS bus (right side, red)
+        body += `<line x1="${posBusX}" y1="${firstStringY}" x2="${posBusX}" y2="${combY + SCH.PV_COMB_H/2}" stroke="${SCH.POS_COLOR}" stroke-width="2" stroke-dasharray="3 2"/>`;
+        body += `<line x1="${posBusX}" y1="${combY + SCH.PV_COMB_H/2}" x2="${combCenterX + 28}" y2="${combY + SCH.PV_COMB_H/2}" stroke="${SCH.POS_COLOR}" stroke-width="2" stroke-dasharray="3 2"/>`;
+
+        // Combiner box
+        const combW = 200, combX = (b.w - combW) / 2;
+        body += `
+          <g transform="translate(${combX},${combY})">
+            <rect width="${combW}" height="${SCH.PV_COMB_H}" rx="5" fill="#243b55" stroke="${stroke}" stroke-width="2"/>
+            <text x="${combW/2}" y="14" text-anchor="middle" fill="${stroke}" font-size="9" font-weight="700" font-family="Arial">⚡ COMBINER (${g.numStrings} ∥)</text>
+            <text x="${combW/2}" y="28" text-anchor="middle" fill="#f7bf6a" font-size="9" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC · Isc ${fmt(r.mpptCurrentIsc, 1)}A</text>
+            <text x="${combW/2}" y="40" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">OCPD ${fmt(r.mpptCurrentNec, 1)}A (NEC×1.25)</text>
+          </g>
+        `;
+        // Combiner output terminals at bottom
+        body += `<circle cx="${combCenterX - 28}" cy="${combY + SCH.PV_COMB_H}" r="${SCH.PV_TERM_R}" fill="${SCH.NEG_COLOR}" stroke="#0d1b2a" stroke-width="1"/>`;
+        body += `<text x="${combCenterX - 28}" y="${combY + SCH.PV_COMB_H + 3}" text-anchor="middle" fill="#0d1b2a" font-size="8" font-weight="700" font-family="Arial">−</text>`;
+        body += `<circle cx="${combCenterX + 28}" cy="${combY + SCH.PV_COMB_H}" r="${SCH.PV_TERM_R}" fill="${SCH.POS_COLOR}" stroke="#0d1b2a" stroke-width="1"/>`;
+        body += `<text x="${combCenterX + 28}" y="${combY + SCH.PV_COMB_H + 3}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Arial">+</text>`;
+      }
+
+      // Footer specs
+      const footerY = b.h - 8;
+      const specsLine = g.numStrings === 1
+        ? `${fmt(r.groupKwDC,2)} kW · Voc ${fmt(r.stringVoc,0)}V · Vmp ${fmt(r.stringVmp,0)}V · Imp ${fmt(r.stringCurrent,1)}A · Isc ${fmt(r.stringIsc,1)}A · OCPD ${fmt(r.mpptCurrentNec,1)}A`
+        : `Per string: ${fmt(singleStrKw,2)} kW · Voc ${fmt(r.stringVoc,0)}V · Isc ${fmt(r.stringIsc,1)}A`;
+      body += `<text x="${b.w/2}" y="${footerY}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${specsLine}</text>`;
+
+      inner = body;
+    } else if (g.numStrings <= 1) {
       // ── Single-string box with full electrical specs ──
       inner = `
         <rect width="${SCH.STR_W}" height="${SCH.STR_H}" rx="6" fill="#162335" stroke="${stroke}" stroke-width="2"/>
@@ -2139,12 +2321,27 @@ function renderSchematic() {
     for (let i = 1; i <= invDef.mpptCount; i++) {
       const px = (SCH.INV_W / (invDef.mpptCount + 1)) * i;
       const portFill = (connectPending && currentTool === 'connect') ? '#27ae60' : '#f4a426';
-      ports += `
-        <circle cx="${px}" cy="0" r="${SCH.PORT_R}" fill="${portFill}" stroke="#0d1b2a" stroke-width="1.5"
-          data-mppt-port="${i}" data-inv-id="${inv.id}"
-          style="cursor:${currentTool === 'connect' ? 'crosshair' : 'inherit'}"/>
-        <text x="${px}" y="-11" text-anchor="middle" fill="#f4a426" font-size="9" font-weight="700" font-family="Arial">M${i}</text>
-      `;
+      if (viewMode === 'panels') {
+        // Show separate + and - terminals per MPPT (8px apart)
+        ports += `
+          <circle cx="${px - 8}" cy="0" r="${SCH.PORT_R}" fill="${SCH.NEG_COLOR}" stroke="#0d1b2a" stroke-width="1.5"
+            data-mppt-port="${i}" data-inv-id="${inv.id}"
+            style="cursor:${currentTool === 'connect' ? 'crosshair' : 'inherit'}"/>
+          <text x="${px - 8}" y="3" text-anchor="middle" fill="#0d1b2a" font-size="8" font-weight="700" font-family="Arial" pointer-events="none">−</text>
+          <circle cx="${px + 8}" cy="0" r="${SCH.PORT_R}" fill="${SCH.POS_COLOR}" stroke="#0d1b2a" stroke-width="1.5"
+            data-mppt-port="${i}" data-inv-id="${inv.id}"
+            style="cursor:${currentTool === 'connect' ? 'crosshair' : 'inherit'}"/>
+          <text x="${px + 8}" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Arial" pointer-events="none">+</text>
+          <text x="${px}" y="-11" text-anchor="middle" fill="#f4a426" font-size="9" font-weight="700" font-family="Arial">M${i}</text>
+        `;
+      } else {
+        ports += `
+          <circle cx="${px}" cy="0" r="${SCH.PORT_R}" fill="${portFill}" stroke="#0d1b2a" stroke-width="1.5"
+            data-mppt-port="${i}" data-inv-id="${inv.id}"
+            style="cursor:${currentTool === 'connect' ? 'crosshair' : 'inherit'}"/>
+          <text x="${px}" y="-11" text-anchor="middle" fill="#f4a426" font-size="9" font-weight="700" font-family="Arial">M${i}</text>
+        `;
+      }
     }
     const node = el('g', {
       transform: `translate(${inv.x},${inv.y})`,
@@ -2200,6 +2397,17 @@ function bindSchematicHandlers() {
     });
   });
   document.getElementById('schematic-fit')?.addEventListener('click', () => {
+    autoLayoutSchematic();
+    render();
+  });
+
+  // View-mode toggle: block ↔ panels
+  const viewBtn = document.getElementById('btn-view-mode');
+  viewBtn?.addEventListener('click', () => {
+    viewMode = (viewMode === 'block') ? 'panels' : 'block';
+    viewBtn.textContent = (viewMode === 'block') ? '🔬 Panel View' : '📦 Block View';
+    viewBtn.classList.toggle('active', viewMode === 'panels');
+    // When switching modes, run auto-layout so things don't overlap (group widths change a lot)
     autoLayoutSchematic();
     render();
   });
