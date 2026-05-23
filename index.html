@@ -42,6 +42,96 @@
     align-items: center;
     gap: 14px;
   }
+
+  /* ─── TOP TOOLBAR (Save / Load / Export) ─── */
+  .top-toolbar {
+    background: var(--navy3);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .tb-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tb-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-right: 6px;
+    align-self: center;
+  }
+  .tb-btn {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tb-btn:hover { border-color: var(--amber); color: var(--amber2); }
+  .tb-btn.tb-primary {
+    background: var(--amber);
+    color: var(--navy);
+    border-color: var(--amber);
+  }
+  .tb-btn.tb-primary:hover { background: var(--amber2); border-color: var(--amber2); }
+  .tb-btn.tb-danger { color: var(--red2); }
+  .tb-btn.tb-danger:hover { border-color: var(--red); color: white; background: var(--red); }
+
+  /* ─── PRINT STYLES ─── */
+  @media print {
+    body { background: white !important; color: black !important; }
+    header {
+      background: white !important;
+      color: black !important;
+      border-bottom: 2px solid #0d1b2a;
+      padding: 10px 0;
+    }
+    header h1 { color: #0d1b2a !important; font-size: 18pt; }
+    header p { color: #555 !important; }
+    .top-toolbar, .inputs-panel, .schematic-toolbar, .schematic-status,
+    .btn-add, .btn-remove, .tool-btn, details.lib-ref,
+    .pv-array-header > div:last-child { display: none !important; }
+    .layout { grid-template-columns: 1fr !important; }
+    .main-panel { padding: 0 !important; gap: 14px !important; }
+    .card, .group-card, .inverter-card, .schematic-card, .agg-banner {
+      background: white !important;
+      color: black !important;
+      border: 1px solid #999 !important;
+      page-break-inside: avoid;
+      box-shadow: none !important;
+    }
+    .card-title, .group-title, .section-title, .subsection-title,
+    .pv-array-header h2, .card-title svg path, .card-title svg rect { color: #0d1b2a !important; fill: #0d1b2a !important; }
+    .kpi { background: white !important; color: black !important; border: 1px solid #ccc !important; }
+    .kpi-value, .kpi-label, .kpi-unit { color: #0d1b2a !important; }
+    .kpi-label, .kpi-unit { color: #555 !important; }
+    table.data, table.data td, table.data th { color: black !important; }
+    table.data th { color: #555 !important; }
+    table.data td.num, table.data td.total-num { color: #0d1b2a !important; }
+    table.data td.green-num { color: #1d6f3d !important; }
+    .group-computed { background: #f5f5f5 !important; }
+    .inv-meta, .inv-meta b, .inv-meta .util { color: #333 !important; }
+    .group-computed td, .group-computed small { color: #333 !important; }
+    .agg-banner .item .lbl { color: #555 !important; }
+    .agg-banner .item .val { color: #0d1b2a !important; }
+    #schematic { background: white !important; border: 1px solid #999 !important; }
+    #schematic text { fill: #0d1b2a !important; }
+    #schematic rect[fill="#162335"] { fill: white !important; }
+    #schematic rect[fill="#1a2d44"] { fill: #f0f5fa !important; }
+    .chart-wrap { height: 200px !important; }
+    .status.ok   { color: #1d6f3d !important; background: #e6f4ec !important; }
+    .status.fail { color: #9c1f0e !important; background: #fae0dc !important; }
+    @page { margin: 0.5in; }
+  }
   header svg { flex-shrink: 0; }
   header h1 { font-size: 1.35rem; font-weight: 700; color: var(--amber); }
   header p  { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
@@ -530,6 +620,24 @@
     <p>Multi-String / Multi-Inverter &mdash; Grid-Tied with Battery Backup &mdash; NEC 690 / 705</p>
   </div>
 </header>
+
+<!-- ═══ TOP TOOLBAR ═══ -->
+<div class="top-toolbar">
+  <div class="tb-group">
+    <span class="tb-label">Configuration</span>
+    <button id="btn-save"  class="tb-btn" title="Download the current configuration as a JSON file">💾 Save Config</button>
+    <button id="btn-load"  class="tb-btn" title="Load a previously-saved JSON configuration">📁 Load Config</button>
+    <input type="file" id="file-load" accept="application/json,.json" style="display:none">
+    <button id="btn-reset" class="tb-btn tb-danger" title="Reset all configuration to factory defaults">🔄 Reset</button>
+  </div>
+  <div class="tb-group">
+    <span class="tb-label">Export</span>
+    <button id="btn-print" class="tb-btn tb-primary" title="Print a full design report (use 'Save as PDF' in the print dialog)">📄 Print Report (PDF)</button>
+    <button id="btn-bom"   class="tb-btn" title="Export the bill of materials as a CSV file">📊 BOM (CSV)</button>
+    <button id="btn-svg"   class="tb-btn" title="Export the schematic as an SVG image">🖼️ Schematic (SVG)</button>
+    <button id="btn-json"  class="tb-btn" title="Export the full system snapshot as JSON for documentation">📦 Snapshot (JSON)</button>
+  </div>
+</div>
 
 <div class="layout">
 
@@ -2077,6 +2185,248 @@ function render() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//   SAVE / LOAD / EXPORT
+// ════════════════════════════════════════════════════════════════════════════
+
+const CONFIG_VERSION = 1;
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+function captureInputs() {
+  return {
+    monthlyKwh:    document.getElementById('monthly-kwh').value,
+    psh:           document.getElementById('psh').value,
+    customPsh:     document.getElementById('custom-psh').value,
+    rate:          document.getElementById('rate').value,
+    esc:           document.getElementById('esc').value,
+    eff:           document.getElementById('eff').value,
+    batModel:      document.getElementById('bat-model').value,
+    batKwh:        document.getElementById('bat-kwh').value,
+    batDod:        document.getElementById('bat-dod').value,
+    batCostCustom: document.getElementById('bat-cost-custom').value,
+    autonomy:      document.getElementById('autonomy').value,
+    bos:           document.getElementById('bos').value,
+    itc:           document.getElementById('itc').value,
+  };
+}
+
+function applyInputs(inp) {
+  const set = (id, val) => { const e = document.getElementById(id); if (e && val != null) e.value = val; };
+  set('monthly-kwh', inp.monthlyKwh);  set('psh', inp.psh);
+  set('custom-psh', inp.customPsh);    set('rate', inp.rate);
+  set('esc', inp.esc);                 set('eff', inp.eff);
+  set('bat-model', inp.batModel);      set('bat-kwh', inp.batKwh);
+  set('bat-dod', inp.batDod);          set('bat-cost-custom', inp.batCostCustom);
+  set('autonomy', inp.autonomy);       set('bos', inp.bos);
+  set('itc', inp.itc);
+  // Refresh slider labels
+  for (const [id, [lblId, fn]] of Object.entries(sliderLabels)) {
+    const el = document.getElementById(id);
+    if (el) document.getElementById(lblId).textContent = fn(el.value);
+  }
+  document.getElementById('custom-psh-field').style.display = (inp.psh === 'custom') ? 'block' : 'none';
+  document.getElementById('custom-bat-fields').style.display = (inp.batModel === 'custom') ? 'block' : 'none';
+}
+
+function saveConfig() {
+  const config = {
+    version:   CONFIG_VERSION,
+    savedAt:   new Date().toISOString(),
+    appName:   'Residential Solar Array Calculator',
+    sourceUrl: 'https://grollie.github.io/solar-calculator/',
+    state: {
+      inverters: state.inverters,
+      groups:    state.groups,
+      combiners: state.combiners,
+    },
+    inputs: captureInputs(),
+  };
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+  const ts = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  downloadBlob(blob, `solar-config-${ts}.json`);
+}
+
+function loadConfig(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const config = JSON.parse(e.target.result);
+      if (!config.state || !config.inputs) throw new Error('Not a valid solar-calculator configuration file');
+
+      state.inverters = Array.isArray(config.state.inverters) ? config.state.inverters : [];
+      state.groups    = Array.isArray(config.state.groups)    ? config.state.groups    : [];
+      state.combiners = Array.isArray(config.state.combiners) ? config.state.combiners : [];
+
+      // Bump next-ID counters past anything in the loaded config
+      nextInvId   = (state.inverters.reduce((m, x) => Math.max(m, x.id || 0), 0) || 0) + 1;
+      nextGroupId = (state.groups.reduce(   (m, x) => Math.max(m, x.id || 0), 0) || 0) + 1;
+      nextCombId  = (state.combiners.reduce((m, x) => Math.max(m, x.id || 0), 0) || 0) + 1;
+
+      applyInputs(config.inputs);
+      render();
+
+      const ts = config.savedAt ? new Date(config.savedAt).toLocaleString() : 'unknown date';
+      alert(`✓ Configuration loaded.\n\nSaved: ${ts}\nInverters: ${state.inverters.length}\nString groups: ${state.groups.length}`);
+    } catch (err) {
+      alert(`✗ Failed to load configuration:\n\n${err.message}`);
+    }
+  };
+  reader.onerror = () => alert('Failed to read file.');
+  reader.readAsText(file);
+}
+
+function resetConfig() {
+  if (!confirm('Reset all configuration to factory defaults?\n\nYour current setup will be discarded. Save your config first if you want to keep it.')) return;
+  location.reload();
+}
+
+function exportBOM() {
+  const r = calcAll();
+  const inp = r.inp;
+  const rows = [['Component', 'Quantity', 'Unit Cost (USD)', 'Total (USD)', 'Notes']];
+  for (const item of Object.values(r.panelLineItems))
+    rows.push([item.name, item.qty, item.unit.toFixed(2), (item.qty * item.unit).toFixed(2), 'Solar panel']);
+  for (const item of Object.values(r.invLineItems))
+    rows.push([item.name, item.qty, item.unit.toFixed(2), (item.qty * item.unit).toFixed(2), 'Inverter']);
+  const batSel = document.getElementById('bat-model');
+  const batName = batSel.options[batSel.selectedIndex].text.split(' (')[0];
+  rows.push([batName, r.numBat, inp.batCost.toFixed(2), r.batHardware.toFixed(2), 'Battery — ' + inp.batKwh + ' kWh nominal']);
+  rows.push(['Mounting / Racking', r.totalPanels, '45.00', r.rackCost.toFixed(2), 'Aluminum rail @ $45/panel']);
+  rows.push(['Monitoring System', 1, '350.00', '350.00', 'Production monitoring gateway']);
+  rows.push(['Wiring, Conduit, Disconnects', 1, '1200.00', '1200.00', 'AC/DC components']);
+  rows.push(['Permits & Inspection', 1, '1500.00', '1500.00', 'AHJ + utility interconnection']);
+  rows.push(['BOS + Labor', '—', `${Math.round(inp.bosPct*100)}% of hardware`, r.bosCost.toFixed(2), 'Balance-of-system + installation']);
+  rows.push(['', '', '', '', '']);
+  rows.push(['Hardware Subtotal', '', '', (r.hardwareCost).toFixed(2), '']);
+  rows.push(['BOS + Labor', '', '', r.bosCost.toFixed(2), '']);
+  rows.push(['Gross System Cost', '', '', r.grossCost.toFixed(2), '']);
+  rows.push([`Federal ITC Credit (${Math.round(inp.itcPct*100)}%)`, '', '', (-r.itcAmount).toFixed(2), 'Negative — reduces cost']);
+  rows.push(['Net Cost After ITC', '', '', r.netCost.toFixed(2), 'Out-of-pocket']);
+  rows.push(['', '', '', '', '']);
+  rows.push(['Annual Production (kWh)', '', '', r.annualKwh.toFixed(0), '']);
+  rows.push(['Annual Savings Year 1 (USD)', '', '', r.annualSavings.toFixed(2), '']);
+  rows.push(['Simple Payback (years)', '', '', isFinite(r.simplePayback) ? r.simplePayback.toFixed(2) : 'n/a', '']);
+  rows.push(['25-Year NPV @ 5% (USD)', '', '', r.npv.toFixed(2), '']);
+
+  const csv = rows.map(row => row.map(c => {
+    const s = String(c);
+    return /[,"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\r\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const ts = new Date().toISOString().slice(0, 10);
+  downloadBlob(blob, `solar-bom-${ts}.csv`);
+}
+
+function exportSchematic() {
+  const svg = document.getElementById('schematic');
+  if (!svg) return;
+  const cloned = svg.cloneNode(true);
+  cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  cloned.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  // Inject a solid background rect so the SVG renders correctly in any viewer
+  const NS = 'http://www.w3.org/2000/svg';
+  const bg = document.createElementNS(NS, 'rect');
+  bg.setAttribute('x', '0'); bg.setAttribute('y', '0');
+  bg.setAttribute('width', '1000'); bg.setAttribute('height', '500');
+  bg.setAttribute('fill', '#0f1f30');
+  cloned.insertBefore(bg, cloned.firstChild);
+  const xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + cloned.outerHTML;
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const ts = new Date().toISOString().slice(0, 10);
+  downloadBlob(blob, `solar-schematic-${ts}.svg`);
+}
+
+function exportSnapshot() {
+  // Full computed snapshot — config + computed results — useful for documentation
+  const r = calcAll();
+  const snapshot = {
+    version:   CONFIG_VERSION,
+    capturedAt: new Date().toISOString(),
+    appName:   'Residential Solar Array Calculator',
+    sourceUrl: 'https://grollie.github.io/solar-calculator/',
+    config: {
+      state: { inverters: state.inverters, groups: state.groups, combiners: state.combiners },
+      inputs: captureInputs(),
+    },
+    results: {
+      totals: {
+        panels:      r.totalPanels,
+        inverters:   r.totalInverters,
+        kwDC:        +r.totalKwDC.toFixed(3),
+        kwAC:        +r.totalInvKwAC.toFixed(3),
+        dcAcRatio:   r.totalInvKwAC > 0 ? +(r.totalKwDC / r.totalInvKwAC).toFixed(3) : 0,
+        valid:       r.allValid,
+      },
+      battery: {
+        dailyLoadKwh:     +r.dailyKwh.toFixed(2),
+        requiredKwh:      +r.reqBatKwh.toFixed(2),
+        minUnitsRequired: r.reqNumBat,
+        configuredUnits:  r.numBat,
+        totalInstalledKwh:+r.totalBatKwh.toFixed(2),
+        status:           r.batStatus,
+      },
+      production: {
+        annualKwh:      Math.round(r.annualKwh),
+        annualSavings:  +r.annualSavings.toFixed(2),
+      },
+      cost: {
+        hardware: +r.hardwareCost.toFixed(2),
+        bosLabor: +r.bosCost.toFixed(2),
+        gross:    +r.grossCost.toFixed(2),
+        itc:      +r.itcAmount.toFixed(2),
+        net:      +r.netCost.toFixed(2),
+        simplePaybackYrs: isFinite(r.simplePayback) ? +r.simplePayback.toFixed(2) : null,
+        npv25yr5pct:     +r.npv.toFixed(2),
+      },
+      perGroup: r.groups.map(({ g, r: gr }) => ({
+        label: g.label, panel: gr.panel.name, inverter: gr.invDefLabel, mppt: g.mpptIndex,
+        strings: g.numStrings, panelsPerString: g.panelsPerString, totalPanels: gr.totalPanels,
+        kwDC: +gr.groupKwDC.toFixed(2),
+        stringVoc: +gr.stringVoc.toFixed(1), stringVmp: +gr.stringVmp.toFixed(1),
+        mpptImpA: +gr.mpptCurrentImp.toFixed(2),
+        mpptIscA: +gr.mpptCurrentIsc.toFixed(2),
+        ocpdNec125A: +gr.mpptCurrentNec.toFixed(2),
+        valid: gr.valid,
+        issues: gr.checks.filter(c => !c.ok).map(c => c.msg),
+        warnings: gr.checks.filter(c => c.ok && c.msg).map(c => c.msg),
+      })),
+      perInverter: state.inverters.map(invDef => {
+        const inv = INVERTERS[invDef.model];
+        return {
+          label: invDef.label, model: invDef.model, modelName: inv.name,
+          batteryCount: invDef.batteryCount || 0,
+          batteryKwh: +((invDef.batteryCount || 0) * r.inp.batKwh).toFixed(1),
+        };
+      }),
+      bom: [
+        ...Object.values(r.panelLineItems).map(item => ({ item: item.name, qty: item.qty, unit: item.unit, total: item.qty * item.unit })),
+        ...Object.values(r.invLineItems).map(item => ({ item: item.name, qty: item.qty, unit: item.unit, total: item.qty * item.unit })),
+        { item: 'Battery Units', qty: r.numBat, unit: r.inp.batCost, total: r.batHardware },
+        { item: 'Mounting / Racking', qty: r.totalPanels, unit: 45, total: r.rackCost },
+        { item: 'Monitoring', qty: 1, unit: 350, total: 350 },
+        { item: 'Wiring / Conduit / Disconnects', qty: 1, unit: 1200, total: 1200 },
+        { item: 'Permits & Inspection', qty: 1, unit: 1500, total: 1500 },
+        { item: `BOS + Labor (${Math.round(r.inp.bosPct*100)}%)`, qty: '—', unit: '—', total: r.bosCost },
+      ]
+    }
+  };
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const ts = new Date().toISOString().slice(0, 10);
+  downloadBlob(blob, `solar-snapshot-${ts}.json`);
+}
+
+function printReport() {
+  window.print();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //   EVENT BINDINGS
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -2144,6 +2494,19 @@ document.getElementById('add-group').addEventListener('click', () => {
   });
   render();
 });
+
+// Save/Load/Export toolbar handlers
+document.getElementById('btn-save').addEventListener('click', saveConfig);
+document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-load').click());
+document.getElementById('file-load').addEventListener('change', (e) => {
+  if (e.target.files.length > 0) loadConfig(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btn-reset').addEventListener('click', resetConfig);
+document.getElementById('btn-print').addEventListener('click', printReport);
+document.getElementById('btn-bom').addEventListener('click', exportBOM);
+document.getElementById('btn-svg').addEventListener('click', exportSchematic);
+document.getElementById('btn-json').addEventListener('click', exportSnapshot);
 
 // Initial render
 renderLibRef();
