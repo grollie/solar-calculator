@@ -833,11 +833,17 @@
           <path d="M2 8h12M8 2v12" stroke="#f4a426" stroke-width="1.5" stroke-linecap="round"/>
           <circle cx="8" cy="8" r="3" stroke="#f4a426" stroke-width="1.5"/>
         </svg>
-        Wire &amp; Breaker Sizing (NEC 690 / 705)
+        Wire &amp; Breaker Sizing (NEC 690.8 / 705.12)
       </div>
       <table class="data">
         <thead>
-          <tr><th>Circuit</th><th style="text-align:right">Current (A)</th><th style="text-align:right">NEC ×1.25</th><th style="text-align:right">Wire (AWG)</th><th style="text-align:right">Breaker</th></tr>
+          <tr>
+            <th>Circuit</th>
+            <th style="text-align:right">Isc / Iop (A)</th>
+            <th style="text-align:right">NEC ×1.25 (A)</th>
+            <th style="text-align:right">Wire (AWG)</th>
+            <th style="text-align:right">OCPD</th>
+          </tr>
         </thead>
         <tbody id="wire-table"></tbody>
       </table>
@@ -1867,42 +1873,73 @@ function renderResults() {
 
   // ── Wire & Breaker Table ──
   let wireRows = '';
-  // DC string rows — one per string group (each MPPT input has its own DC wiring)
+  // ─── DC SECTION HEADER ───
+  wireRows += `<tr><td colspan="5" style="background:var(--navy3);color:var(--amber);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;padding:6px 8px">DC Source &amp; Combiner Circuits  (NEC 690.8 — sized at 125% of Isc)</td></tr>`;
+
+  // DC wiring per string group — show string conductor + combiner output (when multi-string)
   r.groups.forEach(({ g, r: gr }, idx) => {
-    const strCur    = gr.stringCurrent;
-    const strCurNec = strCur * 1.25;
-    const where = gr.invDef ? `${gr.invDefLabel} · MPPT ${g.mpptIndex}` : '— unassigned —';
-    wireRows += `
-      <tr>
-        <td>Grp ${idx + 1} (${where}) — PV String DC — ${gr.panel.name}</td>
-        <td class="num">${fmt(strCur, 1)}</td>
-        <td class="num">${fmt(strCurNec, 1)}</td>
-        <td class="num">AWG ${wireAwg(strCurNec)}</td>
-        <td class="num">${stdBreaker(strCurNec)}</td>
-      </tr>
-    `;
+    const where     = gr.invDef ? `${gr.invDefLabel} · MPPT ${g.mpptIndex}` : '— unassigned —';
+    const stringIsc = gr.stringIsc;                  // per-string short-circuit current (NEC source)
+    const stringNec = stringIsc * 1.25;              // NEC 690.8(A): 125% of Isc
+
+    if (g.numStrings <= 1) {
+      // Single string — wire runs directly to MPPT input (no combiner)
+      wireRows += `
+        <tr>
+          <td>Grp ${idx + 1} (${where}) — PV Source ${gr.panel.name} → MPPT (1 string)</td>
+          <td class="num">${fmt(stringIsc, 2)}</td>
+          <td class="num">${fmt(stringNec, 2)}</td>
+          <td class="num">AWG ${wireAwg(stringNec)} PV wire</td>
+          <td class="num">${stdBreaker(stringNec)} <small>fuse</small></td>
+        </tr>
+      `;
+    } else {
+      // Multi-string: per-string conductor INTO combiner, plus combined OUTPUT from combiner
+      wireRows += `
+        <tr>
+          <td>Grp ${idx + 1} (${where}) — Each of ${g.numStrings} ∥ Strings → Combiner — ${gr.panel.name}</td>
+          <td class="num">${fmt(stringIsc, 2)}</td>
+          <td class="num">${fmt(stringNec, 2)}</td>
+          <td class="num">AWG ${wireAwg(stringNec)} PV wire</td>
+          <td class="num">${stdBreaker(stringNec)} <small>per-string fuse in combiner</small></td>
+        </tr>
+        <tr style="background:rgba(244,164,38,0.05)">
+          <td><b style="color:var(--amber2)">⚡ Grp ${idx + 1} Combiner Output</b> → ${gr.invDefLabel || '—'} M${g.mpptIndex} (${g.numStrings} ∥ strings combined)</td>
+          <td class="num">${fmt(gr.mpptCurrentIsc, 2)}</td>
+          <td class="num">${fmt(gr.mpptCurrentNec, 2)}</td>
+          <td class="num">AWG ${wireAwg(gr.mpptCurrentNec)} THWN</td>
+          <td class="num">${stdBreaker(gr.mpptCurrentNec)} <small>combiner output breaker</small></td>
+        </tr>
+      `;
+    }
   });
+
+  // ─── AC SECTION HEADER ───
+  wireRows += `<tr><td colspan="5" style="background:var(--navy3);color:var(--green2);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;padding:6px 8px">AC Output Circuits  (NEC 690.8(B) / 705.12 — sized at 125% of inverter rated output)</td></tr>`;
+
   // AC output rows — one per physical inverter
   state.inverters.forEach((invDef) => {
-    const inv = INVERTERS[invDef.model];
-    const acCur = (inv.ratedKw * 1000) / inv.acV;
+    const inv      = INVERTERS[invDef.model];
+    const acCur    = (inv.ratedKw * 1000) / inv.acV;
     const acCurNec = acCur * 1.25;
     wireRows += `
       <tr>
         <td><b style="color:var(--green2)">${invDef.label}</b> — AC Output (${inv.name})</td>
         <td class="num">${fmt(acCur, 1)}</td>
         <td class="num">${fmt(acCurNec, 1)}</td>
-        <td class="num">AWG ${wireAwg(acCurNec)}</td>
+        <td class="num">AWG ${wireAwg(acCurNec)} THWN</td>
         <td class="num">${stdBreaker(acCurNec)}</td>
       </tr>
     `;
   });
+
+  // ─── Total Main Panel Backfeed ───
   wireRows += `
     <tr>
-      <td class="total-row">Main Panel Backfeed (NEC 705.12)</td>
+      <td class="total-row">Main Panel Backfeed (NEC 705.12 — sum of all inverter AC outputs)</td>
       <td class="num">${fmt(r.totalAcCurrent, 1)}</td>
       <td class="total-num">${fmt(r.mainBkFeed, 1)}</td>
-      <td class="total-num">AWG ${wireAwg(r.mainBkFeed)}</td>
+      <td class="total-num">AWG ${wireAwg(r.mainBkFeed)} THWN</td>
       <td class="total-num">${stdBreaker(r.mainBkFeed)}</td>
     </tr>
   `;
