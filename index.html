@@ -965,9 +965,9 @@ const INV_3 = nextInvId++;
 // each with 2 single-string groups directly above (130px wide + 20px gap = 280px slot)
 const state = {
   inverters: [
-    { id: INV_1, model: 'sgs-12k18max', label: 'Inverter 1', x:  70, y: 380, batteryCount: 2 },
-    { id: INV_2, model: 'sgs-12k18max', label: 'Inverter 2', x: 390, y: 380, batteryCount: 2 },
-    { id: INV_3, model: 'sgs-12k18max', label: 'Inverter 3', x: 710, y: 380, batteryCount: 2 },
+    { id: INV_1, model: 'sgs-12k18max', label: 'Inverter 1', x:  80, y: 400, batteryCount: 2 },
+    { id: INV_2, model: 'sgs-12k18max', label: 'Inverter 2', x: 410, y: 400, batteryCount: 2 },
+    { id: INV_3, model: 'sgs-12k18max', label: 'Inverter 3', x: 740, y: 400, batteryCount: 2 },
   ],
   groups: [
     // Inverter 1 — 2 strings (one per MPPT)
@@ -976,21 +976,21 @@ const state = {
       x:  30, y:  40 },
     { id: nextGroupId++, label: 'Inv1 / MPPT2', panelKey: 'sgn-590',
       inverterId: INV_1, mpptIndex: 2, numStrings: 1, panelsPerString: 6,
-      x: 180, y:  40 },
+      x: 190, y:  40 },
     // Inverter 2 — 2 strings (one per MPPT)
     { id: nextGroupId++, label: 'Inv2 / MPPT1', panelKey: 'sgn-450',
       inverterId: INV_2, mpptIndex: 1, numStrings: 1, panelsPerString: 12,
-      x: 350, y:  40 },
+      x: 360, y:  40 },
     { id: nextGroupId++, label: 'Inv2 / MPPT2', panelKey: 'sgn-450',
       inverterId: INV_2, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
-      x: 500, y:  40 },
+      x: 520, y:  40 },
     // Inverter 3 — 2 strings (one per MPPT)
     { id: nextGroupId++, label: 'Inv3 / MPPT1', panelKey: 'sgn-590',
       inverterId: INV_3, mpptIndex: 1, numStrings: 1, panelsPerString: 6,
-      x: 670, y:  40 },
+      x: 690, y:  40 },
     { id: nextGroupId++, label: 'Inv3 / MPPT2', panelKey: 'sgn-450',
       inverterId: INV_3, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
-      x: 820, y:  40 },
+      x: 850, y:  40 },
   ],
   combiners: []  // visual-only combiner boxes (no functional impact on calculator)
 };
@@ -1818,7 +1818,7 @@ function renderLibRef() {
 // ════════════════════════════════════════════════════════════════════════════
 
 const SCH = {
-  STR_W: 130, STR_H: 86,                                  // single-string box
+  STR_W: 140, STR_H: 116,                                 // single-string box (now taller to fit full electrical specs)
   STR_SUB_W: 100, STR_SUB_H: 76, STR_SUB_SPACING: 14,     // parallel sub-string box
   COMB_BOX_W: 150, COMB_BOX_H: 52, COMB_GAP: 30,          // auto-combiner under parallel strings
   INV_W: 200, INV_H: 110,
@@ -2050,15 +2050,19 @@ function renderSchematic() {
     let inner = '';
 
     if (g.numStrings <= 1) {
-      // ── Single-string box (no combiner needed) ──
+      // ── Single-string box with full electrical specs ──
       inner = `
         <rect width="${SCH.STR_W}" height="${SCH.STR_H}" rx="6" fill="#162335" stroke="${stroke}" stroke-width="2"/>
         <rect x="6" y="6" width="${SCH.STR_W - 12}" height="14" rx="3" fill="${stroke}" opacity="0.18"/>
-        <text x="${SCH.STR_W/2}" y="17" text-anchor="middle" fill="${stroke}" font-size="10" font-weight="700" font-family="Arial">${g.label}</text>
-        <text x="${SCH.STR_W/2}" y="34" text-anchor="middle" fill="#e8edf3" font-size="9" font-family="Arial">${panelShortName.slice(0, 22)}</text>
-        <text x="${SCH.STR_W/2}" y="48" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">1 str × ${g.panelsPerString} pnl</text>
-        <text x="${SCH.STR_W/2}" y="62" text-anchor="middle" fill="#f7bf6a" font-size="10" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
-        <text x="${SCH.STR_W/2}" y="${SCH.STR_H - 6}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${r.invDef ? `→ ${r.invDef.label} M${g.mpptIndex}` : '⚠ unassigned'}</text>
+        <text x="${SCH.STR_W/2}" y="17"  text-anchor="middle" fill="${stroke}" font-size="10" font-weight="700" font-family="Arial">${g.label}</text>
+        <text x="${SCH.STR_W/2}" y="33"  text-anchor="middle" fill="#e8edf3" font-size="9"  font-family="Arial">${panelShortName.slice(0, 22)}</text>
+        <text x="${SCH.STR_W/2}" y="46"  text-anchor="middle" fill="#8fa3bc" font-size="8"  font-family="Arial">${g.panelsPerString} panels in series</text>
+        <text x="${SCH.STR_W/2}" y="61"  text-anchor="middle" fill="#f7bf6a" font-size="11" font-weight="700" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
+        <line x1="10" y1="68" x2="${SCH.STR_W - 10}" y2="68" stroke="${stroke}" stroke-width="0.5" opacity="0.4"/>
+        <text x="${SCH.STR_W/2}" y="80"  text-anchor="middle" fill="#e8edf3" font-size="8"  font-family="Arial">Voc ${fmt(r.stringVoc, 0)}V · Vmp ${fmt(r.stringVmp, 0)}V</text>
+        <text x="${SCH.STR_W/2}" y="92"  text-anchor="middle" fill="#e8edf3" font-size="8"  font-family="Arial">Imp ${fmt(r.stringCurrent, 1)}A · Isc ${fmt(r.stringIsc, 1)}A</text>
+        <text x="${SCH.STR_W/2}" y="104" text-anchor="middle" fill="#f7bf6a" font-size="8"  font-weight="600" font-family="Arial">OCPD ${fmt(r.mpptCurrentNec, 1)}A (NEC×1.25)</text>
+        <text x="${SCH.STR_W/2}" y="${SCH.STR_H - 4}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${r.invDef ? `→ ${r.invDef.label} M${g.mpptIndex}` : '⚠ unassigned'}</text>
       `;
     } else {
       // ── Multi-string: N parallel string boxes → combiner → MPPT ──
