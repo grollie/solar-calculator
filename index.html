@@ -1004,16 +1004,6 @@ const INVERTERS = {
     category: 'SunGold Hybrid · 48V LV',
     note: '11.4 kW 48V LV LiFePO4 split-phase hybrid'
   },
-  'sgn-11k15pro': {
-    name: 'SunGold SGN-11K15PRO',
-    ratedKw: 11.4, maxPvKw: 15.0,
-    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
-    maxMpptCurrent: 18,
-    maxStrings: 3, cost: 3395,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    category: 'SunGold Hybrid · 48V LV',
-    note: '11.4 kW whole-home backup 200A, 48V LV LiFePO4'
-  },
   'sgn7.6k1hb-48': {
     name: 'SunGold SGN7.6K1HB-48',
     ratedKw: 7.6, maxPvKw: 12.0,
@@ -1085,47 +1075,6 @@ const INVERTERS = {
     type: 'hybrid', acV: 240, mpptCount: 2,
     category: 'SunGold Off-Grid · 48V',
     note: '12 kW 48V LiFePO4, split-phase'
-  },
-  // ═══ SunGold Off-Grid · Higher Power (parallel kits) ═══
-  'sph13048p': {
-    name: 'SunGold SPH13048P (13kW · 2× 6.5kW)',
-    ratedKw: 13.0, maxPvKw: 16.0,
-    maxVdc: 550, mpptMinV: 60, mpptMaxV: 500,
-    maxMpptCurrent: 80,
-    maxStrings: 2, cost: 2480,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    category: 'SunGold Off-Grid · High Power',
-    note: '13 kW 48V LV split-phase (2× SPH6548P parallel)'
-  },
-  'sph16048p': {
-    name: 'SunGold SPH16048P (16kW · 2× 8kW)',
-    ratedKw: 16.0, maxPvKw: 20.0,
-    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
-    maxMpptCurrent: 80,
-    maxStrings: 2, cost: 3090,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    category: 'SunGold Off-Grid · High Power',
-    note: '16 kW (2× 8K parallel), 48V LV split-phase / 3-phase'
-  },
-  'sph20048p': {
-    name: 'SunGold SPH20048P (20kW · 2× 10kW)',
-    ratedKw: 20.0, maxPvKw: 22.0,
-    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
-    maxMpptCurrent: 100,
-    maxStrings: 2, cost: 3360,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    category: 'SunGold Off-Grid · High Power',
-    note: '20 kW (2× 10K parallel), 48V LV split-phase'
-  },
-  'sph10048p-2x': {
-    name: 'SunGold 10kW (2× SPH5048P parallel)',
-    ratedKw: 10.0, maxPvKw: 11.0,
-    maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
-    maxMpptCurrent: 100,
-    maxStrings: 2, cost: 1518,
-    type: 'hybrid', acV: 240, mpptCount: 2,
-    category: 'SunGold Off-Grid · High Power',
-    note: '10 kW (2× SPH5048P parallel), 48V LV split-phase via parallel'
   },
   // ═══ SunGold Off-Grid · Lower Power ═══
   'sph302480a': {
