@@ -961,34 +961,36 @@ let nextCombId  = 1;
 const INV_1 = nextInvId++;
 const INV_2 = nextInvId++;
 const INV_3 = nextInvId++;
+// Default positions: 3 inverters along bottom in their own ~280px slots,
+// each with 2 single-string groups directly above (130px wide + 20px gap = 280px slot)
 const state = {
   inverters: [
-    { id: INV_1, model: 'sgs-12k18max', label: 'Inverter 1', x:  80, y: 360, batteryCount: 2 },
-    { id: INV_2, model: 'sgs-12k18max', label: 'Inverter 2', x: 360, y: 360, batteryCount: 2 },
-    { id: INV_3, model: 'sgs-12k18max', label: 'Inverter 3', x: 640, y: 360, batteryCount: 2 },
+    { id: INV_1, model: 'sgs-12k18max', label: 'Inverter 1', x:  70, y: 380, batteryCount: 2 },
+    { id: INV_2, model: 'sgs-12k18max', label: 'Inverter 2', x: 390, y: 380, batteryCount: 2 },
+    { id: INV_3, model: 'sgs-12k18max', label: 'Inverter 3', x: 710, y: 380, batteryCount: 2 },
   ],
   groups: [
-    // Inverter 1 — 2 strings
+    // Inverter 1 — 2 strings (one per MPPT)
     { id: nextGroupId++, label: 'Inv1 / MPPT1', panelKey: 'sgn-590',
       inverterId: INV_1, mpptIndex: 1, numStrings: 1, panelsPerString: 6,
-      x:  40, y:  40 },
+      x:  30, y:  40 },
     { id: nextGroupId++, label: 'Inv1 / MPPT2', panelKey: 'sgn-590',
       inverterId: INV_1, mpptIndex: 2, numStrings: 1, panelsPerString: 6,
-      x: 190, y:  40 },
-    // Inverter 2 — 2 strings
+      x: 180, y:  40 },
+    // Inverter 2 — 2 strings (one per MPPT)
     { id: nextGroupId++, label: 'Inv2 / MPPT1', panelKey: 'sgn-450',
       inverterId: INV_2, mpptIndex: 1, numStrings: 1, panelsPerString: 12,
-      x: 320, y:  40 },
+      x: 350, y:  40 },
     { id: nextGroupId++, label: 'Inv2 / MPPT2', panelKey: 'sgn-450',
       inverterId: INV_2, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
-      x: 470, y:  40 },
-    // Inverter 3 — 2 strings
+      x: 500, y:  40 },
+    // Inverter 3 — 2 strings (one per MPPT)
     { id: nextGroupId++, label: 'Inv3 / MPPT1', panelKey: 'sgn-590',
       inverterId: INV_3, mpptIndex: 1, numStrings: 1, panelsPerString: 6,
-      x: 600, y:  40 },
+      x: 670, y:  40 },
     { id: nextGroupId++, label: 'Inv3 / MPPT2', panelKey: 'sgn-450',
       inverterId: INV_3, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
-      x: 750, y:  40 },
+      x: 820, y:  40 },
   ],
   combiners: []  // visual-only combiner boxes (no functional impact on calculator)
 };
@@ -1846,27 +1848,77 @@ function ensureSchLayout() {
 }
 
 function autoLayoutSchematic() {
-  const invY = 360;
-  let invX = 60;
-  for (const inv of state.inverters) {
-    inv.x = invX; inv.y = invY;
-    invX += SCH.INV_W + 80;
-  }
+  // Layout strategy:
+  //   1. Group string groups by their assigned inverter.
+  //   2. Each inverter gets a horizontal "slot" sized to fit max(its width, sum of group widths).
+  //   3. Place inverters left-to-right with gaps; their groups sit centered above.
+  //   4. Orphan groups (no inverter assigned) get a row below the inverters.
+  const MARGIN          = 30;
+  const GROUP_GAP       = 20;
+  const INV_GAP         = 50;
+  const TOP_MARGIN      = 50;
+  const GROUP_TO_INV_GAP = 50;
+
+  // Bin groups by inverter
   const byInv = {};
   for (const g of state.groups) {
     const k = g.inverterId ?? 'orphan';
     (byInv[k] = byInv[k] || []).push(g);
   }
-  for (const inv of state.inverters) {
-    const list = byInv[inv.id] || [];
-    if (list.length === 0) continue;
-    const cx = inv.x + SCH.INV_W / 2;
-    const totalW = list.length * SCH.STR_W + (list.length - 1) * 16;
-    let x = cx - totalW / 2;
-    for (const g of list) { g.x = x; g.y = 40; x += SCH.STR_W + 16; }
+
+  // Compute each inverter's slot dimensions
+  const slots = state.inverters.map(inv => {
+    const myGroups     = byInv[inv.id] || [];
+    const groupsTotalW = myGroups.reduce((s, g) => s + getGroupBounds(g).w, 0)
+                       + Math.max(0, myGroups.length - 1) * GROUP_GAP;
+    const maxGroupH    = myGroups.reduce((s, g) => Math.max(s, getGroupBounds(g).h), 0);
+    return {
+      inv,
+      myGroups,
+      groupsTotalW,
+      maxGroupH,
+      slotW: Math.max(SCH.INV_W, groupsTotalW)
+    };
+  });
+
+  // Tallest group across all inverters so all inverters sit at the same Y
+  const maxGroupH = slots.reduce((m, s) => Math.max(m, s.maxGroupH), SCH.STR_H);
+  const invY = TOP_MARGIN + maxGroupH + GROUP_TO_INV_GAP;
+
+  // Position inverters and their groups left-to-right
+  let curX = MARGIN;
+  for (const slot of slots) {
+    const slotCenterX = curX + slot.slotW / 2;
+    slot.inv.x = slotCenterX - SCH.INV_W / 2;
+    slot.inv.y = invY;
+
+    let groupX = curX + (slot.slotW - slot.groupsTotalW) / 2;
+    for (const g of slot.myGroups) {
+      g.x = groupX;
+      g.y = TOP_MARGIN;
+      groupX += getGroupBounds(g).w + GROUP_GAP;
+    }
+    curX += slot.slotW + INV_GAP;
   }
-  let oX = 30;
-  for (const g of (byInv.orphan || [])) { g.x = oX; g.y = 200; oX += SCH.STR_W + 16; }
+
+  // Orphan groups: row below the inverters
+  const orphans = byInv.orphan || [];
+  let oX = MARGIN;
+  const oY = invY + SCH.INV_H + 40;
+  for (const g of orphans) {
+    g.x = oX;
+    g.y = oY;
+    oX += getGroupBounds(g).w + GROUP_GAP;
+  }
+
+  // Standalone (visual-only) combiners on the right under the inverters
+  let cX = Math.max(curX, MARGIN);
+  const cY = invY + SCH.INV_H + 30;
+  for (const c of state.combiners) {
+    c.x = cX;
+    c.y = cY;
+    cX += SCH.CMB_W + 20;
+  }
 }
 
 function svgPoint(svg, evt) {
@@ -1893,6 +1945,16 @@ function getGroupOutputPoint(g) {
   return { x: g.x + combX + SCH.COMB_BOX_W / 2, y: g.y + combY + SCH.COMB_BOX_H };
 }
 
+// Visual bounding box of a string group (accounts for multi-string + combiner)
+function getGroupBounds(g) {
+  if (g.numStrings <= 1) {
+    return { w: SCH.STR_W, h: SCH.STR_H };
+  }
+  const w = g.numStrings * SCH.STR_SUB_W + (g.numStrings - 1) * SCH.STR_SUB_SPACING;
+  const h = SCH.STR_SUB_H + SCH.COMB_GAP + SCH.COMB_BOX_H;
+  return { w, h };
+}
+
 function el(tag, attrs = {}, html = '') {
   const e = document.createElementNS(SCH.NS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -1904,6 +1966,25 @@ function renderSchematic() {
   ensureSchLayout();
   const svg = document.getElementById('schematic');
   if (!svg) return;
+
+  // Compute the bounding box of every element so the canvas grows to fit.
+  let maxX = 1000, maxY = 540;
+  for (const inv of state.inverters) {
+    maxX = Math.max(maxX, inv.x + SCH.INV_W);
+    maxY = Math.max(maxY, inv.y + SCH.INV_H);
+  }
+  for (const g of state.groups) {
+    const b = getGroupBounds(g);
+    maxX = Math.max(maxX, g.x + b.w);
+    maxY = Math.max(maxY, g.y + b.h);
+  }
+  for (const c of state.combiners) {
+    maxX = Math.max(maxX, c.x + SCH.CMB_W);
+    maxY = Math.max(maxY, c.y + SCH.CMB_H);
+  }
+  maxX += 30; maxY += 30; // padding
+  svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+
   svg.innerHTML = '';
 
   // Grid pattern
@@ -1916,7 +1997,7 @@ function renderSchematic() {
     </marker>
   `));
   svg.appendChild(el('rect', {
-    x: 0, y: 0, width: 1000, height: 500,
+    x: 0, y: 0, width: maxX, height: maxY,
     fill: 'url(#sch-grid)',
     'data-action': 'canvas'
   }));
@@ -2243,8 +2324,10 @@ function bindSchematicHandlers() {
       dragState.type === 'inverter' ? state.inverters.find(x => x.id === dragState.id) :
       dragState.type === 'combiner' ? state.combiners.find(x => x.id === dragState.id) : null;
     if (!obj) return;
-    obj.x = Math.max(0, Math.min(1000 - 50, dragState.objStartX + dx));
-    obj.y = Math.max(0, Math.min(500 - 50, dragState.objStartY + dy));
+    // Bounds based on current viewBox (canvas may have grown to fit content)
+    const vb = svg.viewBox.baseVal;
+    obj.x = Math.max(0, Math.min(vb.width  - 30, dragState.objStartX + dx));
+    obj.y = Math.max(0, Math.min(vb.height - 30, dragState.objStartY + dy));
     renderSchematic();
   });
 
