@@ -894,15 +894,15 @@ const PANELS = {
   // ─── SunGold N-type Bifacial (SGN-) ───
   'sgn-450': {
     name: 'SunGold SGN-450-BDG5',
-    pmax: 450, voc: 38.5, vmp: 32.1, isc: 14.85, imp: 14.02,
+    pmax: 450, voc: 35.03, vmp: 30.08, isc: 16.05, imp: 14.97,
     cost: 162, category: 'SunGold N-type Bifacial',
-    note: '450W bifacial N-type TopCon (half-cell)'
+    note: '450W bifacial N-type TopCon (half-cell) — electrical specs from sungoldpower.com datasheet'
   },
   'sgn-590': {
     name: 'SunGold SGN-590-BDG1',
-    pmax: 590, voc: 52.2, vmp: 44.4, isc: 14.45, imp: 13.30,
+    pmax: 590, voc: 52.35, vmp: 44.4, isc: 13.90, imp: 13.30,
     cost: 201, category: 'SunGold N-type Bifacial',
-    note: '590W bifacial N-type (M10)'
+    note: '590W bifacial N-type (M10) — electrical specs from sungoldpower.com datasheet'
   },
   'sgn-440-sw5': {
     name: 'SunGold SGN-440-SW5',
@@ -933,7 +933,7 @@ const PANELS = {
   'sg550wm': {
     name: 'SunGold SG550WM',
     pmax: 550, voc: 49.7, vmp: 41.00, isc: 14.03, imp: 13.45,
-    cost: 713, category: 'SunGold Mono PERC',
+    cost: 869, category: 'SunGold Mono PERC',
     note: '550W PERC monocrystalline'
   },
   'sg500wm': {
@@ -951,7 +951,7 @@ const PANELS = {
   'sg415wm': {
     name: 'SunGold SG415WM',
     pmax: 415, voc: 38.32, vmp: 31.11, isc: 14.09, imp: 13.34,
-    cost: 679, category: 'SunGold Mono PERC',
+    cost: 683, category: 'SunGold Mono PERC',
     note: '415W mono black 182×91mm'
   },
   'sg370wm': {
@@ -997,22 +997,22 @@ const INVERTERS = {
   'sgn11.4khb-48': {
     name: 'SunGold SGN11.4KHB-48',
     ratedKw: 11.4, maxPvKw: 15.0,
-    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxVdc: 600, mpptMinV: 90, mpptMaxV: 450,
     maxMpptCurrent: 18,
     maxStrings: 3, cost: 2065,
-    type: 'hybrid', acV: 240, mpptCount: 2,
+    type: 'hybrid', acV: 240, mpptCount: 3,
     category: 'SunGold Hybrid · 48V LV',
-    note: '11.4 kW 48V LV LiFePO4 split-phase hybrid'
+    note: '11.4 kW 48V LV LiFePO4 split-phase hybrid, 3 MPPTs @ 600V max'
   },
   'sgn7.6k1hb-48': {
     name: 'SunGold SGN7.6K1HB-48',
     ratedKw: 7.6, maxPvKw: 12.0,
-    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxVdc: 600, mpptMinV: 90, mpptMaxV: 450,
     maxMpptCurrent: 18,
     maxStrings: 3, cost: 2450,
-    type: 'hybrid', acV: 240, mpptCount: 2,
+    type: 'hybrid', acV: 240, mpptCount: 3,
     category: 'SunGold Hybrid · 48V LV',
-    note: '7.6 kW hybrid, 48V LV LiFePO4 split-phase'
+    note: '7.6 kW hybrid, 48V LV LiFePO4 split-phase, 3 MPPTs @ 600V max'
   },
   // ═══ SunGold Off-Grid / Hybrid · 48V LV ═══
   'sph10048p': {
@@ -1050,10 +1050,10 @@ const INVERTERS = {
     ratedKw: 5.0, maxPvKw: 5.5,
     maxVdc: 500, mpptMinV: 60, mpptMaxV: 450,
     maxMpptCurrent: 100,
-    maxStrings: 1, cost: 689,
+    maxStrings: 1, cost: 764,
     type: 'hybrid', acV: 120, mpptCount: 1,
     category: 'SunGold Off-Grid · 48V',
-    note: '5 kW 48V single-phase 120V'
+    note: '5 kW 48V single-phase 120V (sale price)'
   },
   'fr12k-b': {
     name: 'SunGold FR12K-B (12kW)',
@@ -1071,10 +1071,10 @@ const INVERTERS = {
     ratedKw: 3.0, maxPvKw: 4.0,
     maxVdc: 450, mpptMinV: 120, mpptMaxV: 400,
     maxMpptCurrent: 80,
-    maxStrings: 1, cost: 413,
+    maxStrings: 1, cost: 459,
     type: 'hybrid', acV: 120, mpptCount: 1,
     category: 'SunGold Off-Grid · Lower Power',
-    note: '3 kW 24V lead-acid/lithium, 120V pure sine'
+    note: '3 kW 24V lead-acid/lithium, 120V pure sine (sale price)'
   },
   // ═══ Other Manufacturers (for comparison) ═══
   'sma-sb10': {
