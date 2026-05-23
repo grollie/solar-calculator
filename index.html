@@ -1,0 +1,2161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Residential Solar Array Sizing Calculator — Multi-String</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #0d1b2a;
+    --navy2:  #1b2e45;
+    --navy3:  #243b55;
+    --amber:  #f4a426;
+    --amber2: #f7bf6a;
+    --green:  #27ae60;
+    --green2: #6cc187;
+    --red:    #e74c3c;
+    --red2:   #f1a9a0;
+    --text:   #e8edf3;
+    --muted:  #8fa3bc;
+    --border: #2e4a66;
+    --card:   #162335;
+    --card2:  #1a2d44;
+    --input-bg: #0f1f30;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--navy);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--navy2), var(--navy3));
+    border-bottom: 2px solid var(--amber);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  header svg { flex-shrink: 0; }
+  header h1 { font-size: 1.35rem; font-weight: 700; color: var(--amber); }
+  header p  { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    flex: 1;
+  }
+
+  /* ─── INPUTS PANEL ─── */
+  .inputs-panel {
+    background: var(--navy2);
+    border-right: 1px solid var(--border);
+    padding: 22px 18px;
+    overflow-y: auto;
+    max-height: calc(100vh - 70px);
+    position: sticky;
+    top: 0;
+  }
+
+  .section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .field label span { color: var(--amber2); font-weight: 600; }
+
+  .field input[type="number"],
+  .field select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    padding: 7px 9px;
+    font-size: 0.83rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--amber); }
+  .field select option { background: var(--navy2); }
+  .field input[type="range"] {
+    width: 100%;
+    accent-color: var(--amber);
+    margin-top: 4px;
+  }
+
+  /* ─── MAIN PANEL ─── */
+  .main-panel {
+    padding: 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ─── PV ARRAY SECTION ─── */
+  .pv-array-section { display: flex; flex-direction: column; gap: 12px; }
+  .pv-array-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .pv-array-header h2 {
+    font-size: 1.05rem;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-add {
+    background: var(--amber);
+    color: var(--navy);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-add:hover { background: var(--amber2); }
+  .btn-add:active { transform: scale(0.97); }
+
+  /* ─── SUBSECTION TITLES ─── */
+  .subsection-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin: 12px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  /* ─── INVERTER CARDS ─── */
+  .inverters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .inverter-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--green2);
+    border-radius: 7px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+    align-items: center;
+  }
+  .inverter-card.invalid { border-left-color: var(--red); }
+  .inverter-card .inv-label {
+    background: transparent;
+    border: none;
+    color: var(--green2);
+    font-weight: 700;
+    font-size: 0.88rem;
+    width: 100%;
+    outline: none;
+    border-bottom: 1px dashed transparent;
+  }
+  .inverter-card .inv-label:focus { border-bottom-color: var(--green2); }
+  .inverter-card .inv-model {
+    grid-column: 1 / -1;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    outline: none;
+    margin-top: 2px;
+  }
+  .inverter-card .inv-meta {
+    grid-column: 1 / -1;
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.5;
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    margin-top: 2px;
+  }
+  .inverter-card .inv-meta b { color: var(--amber2); }
+  .inverter-card .inv-meta .util { color: var(--text); font-weight: 600; }
+  .inverter-card .inv-meta .util.over { color: var(--red); }
+  .inverter-card .inv-meta .util.warn { color: var(--amber); }
+  .inverter-card .inv-meta .util.ok   { color: var(--green2); }
+
+  /* ─── STRING GROUP CARDS ─── */
+  .groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 14px;
+  }
+
+  .group-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--amber);
+    border-radius: 9px;
+    padding: 14px 16px;
+    position: relative;
+  }
+  .group-card.invalid { border-left-color: var(--red); }
+
+  .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .group-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .group-title input.title-input {
+    background: transparent;
+    border: none;
+    color: var(--amber);
+    font-weight: 700;
+    font-size: 0.9rem;
+    width: 130px;
+    outline: none;
+    border-bottom: 1px dashed transparent;
+  }
+  .group-title input.title-input:focus { border-bottom-color: var(--amber); }
+
+  .btn-remove {
+    background: transparent;
+    color: var(--red2);
+    border: 1px solid var(--red);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-remove:hover { background: var(--red); color: white; }
+
+  .group-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    margin-bottom: 10px;
+  }
+  .group-grid .full { grid-column: 1 / -1; }
+  .group-grid .field { margin-bottom: 0; }
+
+  .group-computed {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+  }
+  .group-computed table { width: 100%; border-collapse: collapse; }
+  .group-computed td {
+    padding: 3px 0;
+    border: none;
+    vertical-align: top;
+  }
+  .group-computed td:first-child { color: var(--muted); width: 50%; }
+  .group-computed td:last-child {
+    text-align: right;
+    color: var(--amber2);
+    font-weight: 600;
+  }
+  .group-computed td.ok    { color: var(--green); }
+  .group-computed td.fail  { color: var(--red);   }
+  .group-computed .status {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .group-computed .status.ok   { background: rgba(39,174,96,0.15);  color: var(--green2); }
+  .group-computed .status.fail { background: rgba(231,76,60,0.15);  color: var(--red2);   }
+  .group-computed .status .det { display: block; font-weight: 400; font-size: 0.72rem; margin-top: 3px; opacity: 0.85; }
+
+  /* ─── AGGREGATE SUMMARY BANNER ─── */
+  .agg-banner {
+    background: linear-gradient(135deg, var(--card), var(--card2));
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+  }
+  .agg-banner .item .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .agg-banner .item .val { font-size: 1.25rem; font-weight: 700; color: var(--amber); margin-top: 2px; }
+  .agg-banner .item .val.green { color: var(--green); }
+  .agg-banner .item .val small { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+
+  /* ─── KPI CARDS ─── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 12px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--amber);
+  }
+  .kpi.green::before { background: var(--green); }
+  .kpi-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-value { font-size: 1.6rem; font-weight: 700; margin: 5px 0 2px; color: var(--text); line-height: 1; }
+  .kpi-unit  { font-size: 0.72rem; color: var(--amber2); }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 18px;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--amber);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  table.data th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.data td {
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(46,74,102,0.4);
+  }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data td.num { text-align: right; font-weight: 600; color: var(--amber2); }
+  table.data td.total-row { color: var(--text); font-weight: 700; }
+  table.data td.total-num { text-align: right; font-weight: 700; color: var(--amber); }
+  table.data td.green-num { text-align: right; font-weight: 700; color: var(--green); }
+
+  .chart-wrap { position: relative; height: 220px; margin-top: 10px; }
+  canvas { width: 100% !important; height: 100% !important; }
+
+  .empty-state {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 9px;
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .empty-state b { color: var(--amber); }
+
+  .badge {
+    display: inline-block;
+    background: rgba(244,164,38,0.15);
+    color: var(--amber);
+    border: 1px solid rgba(244,164,38,0.3);
+    border-radius: 4px;
+    font-size: 0.66rem;
+    padding: 2px 6px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .badge.hybrid { background: rgba(108,193,135,0.15); color: var(--green); border-color: rgba(108,193,135,0.3); }
+
+  details.lib-ref {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 16px;
+    font-size: 0.82rem;
+  }
+  details.lib-ref summary {
+    cursor: pointer;
+    color: var(--amber);
+    font-weight: 600;
+    padding: 4px 0;
+  }
+  details.lib-ref table {
+    width: 100%;
+    font-size: 0.76rem;
+    margin-top: 10px;
+    border-collapse: collapse;
+  }
+  details.lib-ref th, details.lib-ref td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  details.lib-ref th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
+  details.lib-ref td { color: var(--text); }
+
+  /* ─── SCHEMATIC VIEW ─── */
+  .schematic-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 16px;
+  }
+  .schematic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .schematic-toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .tool-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 5px;
+    padding: 6px 11px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tool-btn:hover { border-color: var(--amber); color: var(--amber2); }
+  .tool-btn.active {
+    background: var(--amber);
+    color: var(--navy);
+    border-color: var(--amber);
+  }
+  .schematic-status {
+    background: var(--card2);
+    border-left: 3px solid var(--amber);
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    min-height: 14px;
+  }
+  #schematic { display: block; user-select: none; }
+  #schematic .sch-node text { pointer-events: none; }
+  #schematic [data-mppt-port] { pointer-events: all; }
+  #schematic [data-mppt-port]:hover { fill: #f7bf6a; }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+    .inputs-panel { max-height: none; position: static; }
+    .groups-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+    <circle cx="18" cy="18" r="8" fill="#f4a426"/>
+    <g stroke="#f4a426" stroke-width="2" stroke-linecap="round">
+      <line x1="18" y1="4" x2="18" y2="8"/>
+      <line x1="18" y1="28" x2="18" y2="32"/>
+      <line x1="4" y1="18" x2="8" y2="18"/>
+      <line x1="28" y1="18" x2="32" y2="18"/>
+      <line x1="8.5" y1="8.5" x2="11.4" y2="11.4"/>
+      <line x1="24.6" y1="24.6" x2="27.5" y2="27.5"/>
+      <line x1="27.5" y1="8.5" x2="24.6" y2="11.4"/>
+      <line x1="11.4" y1="24.6" x2="8.5" y2="27.5"/>
+    </g>
+  </svg>
+  <div>
+    <h1>Residential Solar Array Sizing Calculator</h1>
+    <p>Multi-String / Multi-Inverter &mdash; Grid-Tied with Battery Backup &mdash; NEC 690 / 705</p>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══════════════ INPUTS PANEL ═══════════════ -->
+  <div class="inputs-panel">
+
+    <div class="section-title">Site &amp; Load</div>
+
+    <div class="field">
+      <label>Monthly electricity usage <span id="lbl-kwh">2500</span> kWh/mo</label>
+      <input type="range" id="monthly-kwh" min="500" max="5000" step="50" value="2500">
+    </div>
+
+    <div class="field">
+      <label>Location / peak sun hours</label>
+      <select id="psh">
+        <option value="6.0">Southwest (CA, AZ, NM, NV) — 6.0 hr/day</option>
+        <option value="5.0" selected>Southeast / South Central (TX, FL, GA) — 5.0 hr/day</option>
+        <option value="4.0">Northeast / Midwest (NY, IL, OH, MA) — 4.0 hr/day</option>
+        <option value="4.2">Pacific NW / Mountain (WA, OR, CO) — 4.2 hr/day</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div class="field" id="custom-psh-field" style="display:none">
+      <label>Custom PSH <span id="lbl-custom-psh">5.0</span> hr/day</label>
+      <input type="number" id="custom-psh" min="2" max="8" step="0.1" value="5.0">
+    </div>
+
+    <div class="field">
+      <label>Electricity rate <span id="lbl-rate">$0.13</span>/kWh</label>
+      <input type="range" id="rate" min="0.08" max="0.35" step="0.01" value="0.13">
+    </div>
+
+    <div class="field">
+      <label>Annual rate escalation <span id="lbl-esc">3</span>%/yr</label>
+      <input type="range" id="esc" min="0" max="10" step="0.5" value="3">
+    </div>
+
+    <div class="field">
+      <label>System efficiency / derating <span id="lbl-eff">85</span>%</label>
+      <input type="range" id="eff" min="70" max="97" step="1" value="85">
+    </div>
+
+    <div class="section-title">Battery Backup</div>
+
+    <div class="field">
+      <label>Battery system</label>
+      <select id="bat-model">
+        <option value="13.5,90,9500">Tesla Powerwall 3 (13.5 kWh, 90% DoD)</option>
+        <option value="10,90,8500">Tesla Powerwall 2 (10 kWh, 90% DoD)</option>
+        <option value="9.8,80,9000">LG RESU 10H (9.8 kWh, 80% DoD)</option>
+        <option value="16,90,12000">LG RESU Prime 16H (16 kWh, 90% DoD)</option>
+        <option value="10,80,8000">Generac PWRcell (10 kWh, 80% DoD)</option>
+        <option value="14.3,95,8000">EG4 14.3 kWh (LiFePO₄, 95% DoD)</option>
+        <option value="16,95,2995" selected>SunGold PowerMax 314 (16 kWh LFP, 51.2V × 314Ah, 95% DoD)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div id="custom-bat-fields" style="display:none">
+      <div class="field">
+        <label>Usable capacity per unit (kWh)</label>
+        <input type="number" id="bat-kwh" min="1" max="50" step="0.1" value="13.5">
+      </div>
+      <div class="field">
+        <label>Depth of discharge (%)</label>
+        <input type="number" id="bat-dod" min="50" max="100" value="90">
+      </div>
+      <div class="field">
+        <label>Cost per unit ($)</label>
+        <input type="number" id="bat-cost-custom" min="500" max="30000" step="100" value="9500">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Autonomy target <span id="lbl-auto">1.0</span> days</label>
+      <input type="range" id="autonomy" min="0.5" max="3" step="0.25" value="1.0">
+    </div>
+
+    <div class="section-title">Financial</div>
+
+    <div class="field">
+      <label>BOS + labor (% of hardware) <span id="lbl-bos">40</span>%</label>
+      <input type="range" id="bos" min="10" max="80" step="5" value="40">
+    </div>
+
+    <div class="field">
+      <label>Federal ITC <span id="lbl-itc">30</span>%</label>
+      <input type="range" id="itc" min="0" max="50" step="1" value="30">
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ MAIN PANEL ═══════════════ -->
+  <div class="main-panel">
+
+    <!-- ─── PV ARRAY CONFIGURATION ─── -->
+    <div class="pv-array-section">
+      <div class="pv-array-header">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="3" width="7" height="6" rx="0.8" fill="#f4a426"/>
+            <rect x="11" y="3" width="7" height="6" rx="0.8" fill="#f4a426"/>
+            <rect x="2" y="11" width="7" height="6" rx="0.8" fill="#f4a426" opacity=".6"/>
+            <rect x="11" y="11" width="7" height="6" rx="0.8" fill="#f4a426" opacity=".6"/>
+          </svg>
+          PV Array Configuration
+          <span id="inv-count-badge" class="badge">0 inv</span>
+          <span id="group-count-badge" class="badge">0 strings</span>
+        </h2>
+        <div style="display:flex;gap:8px">
+          <button id="add-inverter" class="btn-add" style="background:var(--green2);color:white">+ Add Inverter</button>
+          <button id="add-group" class="btn-add">+ Add String Group</button>
+        </div>
+      </div>
+
+      <!-- Inverters subsection -->
+      <div id="inverters-section">
+        <div class="subsection-title">PHYSICAL INVERTERS</div>
+        <div id="inverters-list" class="inverters-grid"></div>
+      </div>
+
+      <!-- String groups subsection -->
+      <div>
+        <div class="subsection-title">STRING GROUPS (assign each to an inverter + MPPT)</div>
+        <div id="groups-list" class="groups-grid"></div>
+      </div>
+
+      <div id="agg-summary" class="agg-banner"></div>
+
+      <!-- ─── SCHEMATIC LAYOUT EDITOR ─── -->
+      <div class="schematic-card">
+        <div class="schematic-header">
+          <div class="card-title" style="margin-bottom:0">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="1" width="6" height="4" rx="0.6" stroke="#f4a426" stroke-width="1.4" fill="none"/>
+              <rect x="9" y="1" width="6" height="4" rx="0.6" stroke="#f4a426" stroke-width="1.4" fill="none"/>
+              <rect x="5" y="11" width="6" height="4" rx="0.6" stroke="#6cc187" stroke-width="1.4" fill="none"/>
+              <path d="M 4 5 L 4 9 M 12 5 L 12 9 M 4 9 L 12 9 M 8 9 L 8 11" stroke="#f4a426" stroke-width="1.2" fill="none"/>
+            </svg>
+            Schematic Layout Editor
+          </div>
+          <div class="schematic-toolbar">
+            <button data-tool="select"        class="tool-btn active" title="Drag components to rearrange">↖ Select</button>
+            <button data-tool="connect"       class="tool-btn"        title="Click a string → click an MPPT port to assign">━ Connect</button>
+            <button data-tool="add-inverter"  class="tool-btn"        title="Click on canvas to place an inverter">+ Inverter</button>
+            <button data-tool="add-string"    class="tool-btn"        title="Click on canvas to place a string group">+ String</button>
+            <button data-tool="add-combiner"  class="tool-btn"        title="Add a combiner box (visual only)">+ Combiner</button>
+            <button data-tool="delete"        class="tool-btn"        title="Click a node to remove it">✕ Delete</button>
+            <button id="schematic-fit"        class="tool-btn"        title="Auto-arrange components">⊞ Auto-Layout</button>
+          </div>
+        </div>
+        <div id="schematic-status" class="schematic-status"></div>
+        <svg id="schematic" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet"
+             style="width:100%;height:520px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;cursor:default"></svg>
+      </div>
+
+      <details class="lib-ref">
+        <summary>📋 Component library reference (panels & inverters)</summary>
+        <div id="lib-ref-content"></div>
+      </details>
+    </div>
+
+    <!-- ─── KPIs ─── -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- ─── BATTERY SIZING + STATUS ─── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="card-row-1"></div>
+
+    <!-- ─── WIRE & BREAKER ─── -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 8h12M8 2v12" stroke="#f4a426" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="8" cy="8" r="3" stroke="#f4a426" stroke-width="1.5"/>
+        </svg>
+        Wire &amp; Breaker Sizing (NEC 690 / 705)
+      </div>
+      <table class="data">
+        <thead>
+          <tr><th>Circuit</th><th style="text-align:right">Current (A)</th><th style="text-align:right">NEC ×1.25</th><th style="text-align:right">Wire (AWG)</th><th style="text-align:right">Breaker</th></tr>
+        </thead>
+        <tbody id="wire-table"></tbody>
+      </table>
+    </div>
+
+    <!-- ─── BOM ─── -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#f4a426" stroke-width="1.5"/>
+          <path d="M5 5h6M5 8h6M5 11h4" stroke="#f4a426" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Bill of Materials
+      </div>
+      <table class="data">
+        <thead><tr><th>Component</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody id="bom-table"></tbody>
+      </table>
+    </div>
+
+    <!-- ─── PAYBACK CHART ─── -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <polyline points="2,14 5,8 8,10 11,4 14,6" stroke="#f4a426" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        25-Year Cumulative Cash Flow
+      </div>
+      <div class="chart-wrap"><canvas id="payback-chart"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+//   COMPONENT LIBRARIES
+// ════════════════════════════════════════════════════════════════════════════
+
+const PANELS = {
+  'gen-400': {
+    name: 'Generic 400W Mono',
+    pmax: 400, voc: 49.0, vmp: 40.5, isc: 10.0, imp: 9.8,
+    cost: 200,
+    note: 'Standard residential monocrystalline'
+  },
+  'sgn-450': {
+    name: 'SunGold SGN-450-BDG5',
+    pmax: 450, voc: 38.5, vmp: 32.1, isc: 14.85, imp: 14.02,
+    cost: 162,
+    note: '450W bifacial N-type TopCon (half-cell)'
+  },
+  'sgn-590': {
+    name: 'SunGold SGN-590-BDG1',
+    pmax: 590, voc: 52.2, vmp: 44.4, isc: 14.45, imp: 13.30,
+    cost: 201,
+    note: '590W bifacial N-type (high-power)'
+  },
+  'gen-500': {
+    name: 'Generic 500W Mono',
+    pmax: 500, voc: 50.5, vmp: 42.0, isc: 13.5, imp: 12.5,
+    cost: 240,
+    note: 'High-power residential mono'
+  },
+  'custom': {
+    name: 'Custom panel…',
+    pmax: 400, voc: 49.0, vmp: 40.5, isc: 10.0, imp: 9.8,
+    cost: 200,
+    note: 'User-defined'
+  }
+};
+
+const INVERTERS = {
+  'sma-sb10': {
+    name: 'SMA Sunny Boy 10.0-US',
+    ratedKw: 10.0, maxPvKw: 15.0,
+    maxVdc: 600, mpptMinV: 100, mpptMaxV: 480,
+    maxMpptCurrent: 20,
+    maxStrings: 4, cost: 1800,
+    type: 'string', acV: 240, mpptCount: 3,
+    note: 'String inverter, grid-tied'
+  },
+  'solaredge-7600': {
+    name: 'SolarEdge SE7600H-US',
+    ratedKw: 7.6, maxPvKw: 11.6,
+    maxVdc: 480, mpptMinV: 200, mpptMaxV: 480,
+    maxMpptCurrent: 16,
+    maxStrings: 2, cost: 1900,
+    type: 'string', acV: 240, mpptCount: 1,
+    note: 'HD-Wave, requires optimizers'
+  },
+  'sph10048p': {
+    name: 'SunGold SPH10048P',
+    ratedKw: 10.0, maxPvKw: 13.0,
+    maxVdc: 550, mpptMinV: 90, mpptMaxV: 450,
+    maxMpptCurrent: 22,
+    maxStrings: 4, cost: 1183,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    note: '10 kW hybrid, 48V LV battery, split-phase, 2 MPPTs, 550V DC max, 22A per MPPT'
+  },
+  'sgs-12k18max': {
+    name: 'SunGold SGS-12K18MAX',
+    ratedKw: 12.0, maxPvKw: 18.0,
+    maxVdc: 550, mpptMinV: 120, mpptMaxV: 450,
+    maxMpptCurrent: 32,
+    maxStrings: 4, cost: 2835,
+    type: 'hybrid', acV: 240, mpptCount: 2,
+    note: '12 kW MAX hybrid, 2 MPPTs, supports 18 kW PV, 550V DC max, 32A per MPPT'
+  },
+  'enphase-iq8': {
+    name: 'Enphase IQ8+ Microinverter',
+    ratedKw: 0.295, maxPvKw: 0.450,
+    maxVdc: 60, mpptMinV: 24, mpptMaxV: 58,
+    maxMpptCurrent: 14,
+    maxStrings: 1, cost: 200,
+    type: 'micro', acV: 240, mpptCount: 1,
+    note: 'Per-panel microinverter (1 per panel)'
+  },
+  'custom': {
+    name: 'Custom inverter…',
+    ratedKw: 10.0, maxPvKw: 15.0,
+    maxVdc: 600, mpptMinV: 100, mpptMaxV: 480,
+    maxMpptCurrent: 25,
+    maxStrings: 4, cost: 1800,
+    type: 'string', acV: 240, mpptCount: 2,
+    note: 'User-defined'
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//   STATE
+// ════════════════════════════════════════════════════════════════════════════
+
+let nextInvId   = 1;
+let nextGroupId = 1;
+let nextCombId  = 1;
+
+// Inverters are first-class entities. Each string group is assigned to one inverter
+// (by id) and a specific MPPT input on that inverter.
+// x/y coords are positions in the schematic SVG canvas.
+const INV_1 = nextInvId++;
+const INV_2 = nextInvId++;
+const INV_3 = nextInvId++;
+const state = {
+  inverters: [
+    { id: INV_1, model: 'sgs-12k18max', label: 'Inverter 1', x:  80, y: 360, batteryCount: 2 },
+    { id: INV_2, model: 'sgs-12k18max', label: 'Inverter 2', x: 360, y: 360, batteryCount: 2 },
+    { id: INV_3, model: 'sgs-12k18max', label: 'Inverter 3', x: 640, y: 360, batteryCount: 2 },
+  ],
+  groups: [
+    // Inverter 1 — 2 strings
+    { id: nextGroupId++, label: 'Inv1 / MPPT1', panelKey: 'sgn-590',
+      inverterId: INV_1, mpptIndex: 1, numStrings: 1, panelsPerString: 6,
+      x:  40, y:  40 },
+    { id: nextGroupId++, label: 'Inv1 / MPPT2', panelKey: 'sgn-590',
+      inverterId: INV_1, mpptIndex: 2, numStrings: 1, panelsPerString: 6,
+      x: 190, y:  40 },
+    // Inverter 2 — 2 strings
+    { id: nextGroupId++, label: 'Inv2 / MPPT1', panelKey: 'sgn-450',
+      inverterId: INV_2, mpptIndex: 1, numStrings: 1, panelsPerString: 12,
+      x: 320, y:  40 },
+    { id: nextGroupId++, label: 'Inv2 / MPPT2', panelKey: 'sgn-450',
+      inverterId: INV_2, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
+      x: 470, y:  40 },
+    // Inverter 3 — 2 strings
+    { id: nextGroupId++, label: 'Inv3 / MPPT1', panelKey: 'sgn-590',
+      inverterId: INV_3, mpptIndex: 1, numStrings: 1, panelsPerString: 6,
+      x: 600, y:  40 },
+    { id: nextGroupId++, label: 'Inv3 / MPPT2', panelKey: 'sgn-450',
+      inverterId: INV_3, mpptIndex: 2, numStrings: 1, panelsPerString: 12,
+      x: 750, y:  40 },
+  ],
+  combiners: []  // visual-only combiner boxes (no functional impact on calculator)
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//   HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+
+const fmt   = (n, dec=1) => n.toLocaleString('en-US', { maximumFractionDigits: dec, minimumFractionDigits: dec });
+const fmtI  = n => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+const fmtK  = n => n >= 1000 ? `${fmt(n/1000, 1)}k` : fmt(n, 0);
+const fmtD  = n => `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const fmtD2 = n => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+
+const AWG_TBL = [
+  [15,'14'],[20,'12'],[30,'10'],[40,'8'],[55,'6'],[75,'4'],[95,'3'],
+  [110,'2'],[130,'1'],[150,'1/0'],[175,'2/0'],[200,'3/0'],[230,'4/0']
+];
+const STD_BRK = [15,20,25,30,40,50,60,70,80,90,100,110,125,150,175,200,225,250,300,350,400];
+
+const wireAwg = a => { for (const [c, g] of AWG_TBL) if (a <= c) return g; return '350 kcmil'; };
+const stdBreaker = a => { for (const b of STD_BRK) if (b >= a) return `${b} A`; return `${Math.ceil(a/50)*50} A`; };
+
+// ════════════════════════════════════════════════════════════════════════════
+//   PER-GROUP CALCULATION
+// ════════════════════════════════════════════════════════════════════════════
+
+function calcGroup(g) {
+  const p = PANELS[g.panelKey];
+
+  const totalPanels    = g.numStrings * g.panelsPerString;
+  const groupKwDC      = totalPanels * p.pmax / 1000;
+  const stringVoc      = g.panelsPerString * p.voc;
+  const stringVmp      = g.panelsPerString * p.vmp;
+  const stringCurrent  = p.imp;
+  const stringIsc      = p.isc;
+  const mpptCurrentImp = g.numStrings * p.imp;
+  const mpptCurrentIsc = g.numStrings * p.isc;
+  const mpptCurrentNec = mpptCurrentIsc * 1.25;   // NEC 690.8(A)
+
+  // Look up the physical inverter this group is assigned to
+  const invDef = state.inverters.find(x => x.id === g.inverterId);
+
+  if (!invDef) {
+    // Orphaned group — no inverter assigned (or assigned-to inverter was removed)
+    return {
+      panel: p, inv: null, invDef: null, invDefLabel: '— unassigned —',
+      totalPanels, groupKwDC, stringVoc, stringVmp,
+      stringCurrent, stringIsc, mpptCurrentImp, mpptCurrentIsc, mpptCurrentNec,
+      totalInvKw: 0, totalInvPvKw: 0, dcAcRatio: 0, acCurrentPerInv: 0,
+      peerGroups: [], peerStrings: 0, peerKwDC: 0, isShared: false,
+      checks: [{ ok: false, msg: 'No inverter assigned — pick one in the "Assigned to" dropdown, or add a new inverter above.' }],
+      valid: false
+    };
+  }
+  const inv = INVERTERS[invDef.model];
+
+  // Peer groups: all groups assigned to the SAME physical inverter (by id)
+  const peerGroups = state.groups.filter(x => x.inverterId === g.inverterId);
+  const peerStrings = peerGroups.reduce((s, x) => s + x.numStrings, 0);
+  const peerKwDC = peerGroups.reduce((s, x) => {
+    const xp = PANELS[x.panelKey];
+    return s + x.numStrings * x.panelsPerString * xp.pmax / 1000;
+  }, 0);
+  const isShared = peerGroups.length > 1;
+
+  // For a single physical inverter (this group's assigned inverter), capacity is 1×inv specs
+  const totalInvKw      = inv.ratedKw;
+  const totalInvPvKw    = inv.maxPvKw;
+  const dcAcRatio       = totalInvKw > 0 ? peerKwDC / totalInvKw : 0;
+  const acCurrentPerInv = (inv.ratedKw * 1000) / inv.acV;
+
+  // Validation
+  const checks = [];
+  if (inv.type === 'micro') {
+    if (g.panelsPerString !== 1)
+      checks.push({ ok: false, msg: `Microinverters require 1 panel per string (currently ${g.panelsPerString})` });
+    if (p.voc > inv.maxVdc)
+      checks.push({ ok: false, msg: `Panel Voc (${fmt(p.voc,1)}V) exceeds microinverter max (${inv.maxVdc}V)` });
+  } else {
+    // Per-string voltage checks
+    if (stringVoc > inv.maxVdc) {
+      checks.push({ ok: false, msg: `String Voc (${fmt(stringVoc,1)}V) EXCEEDS inverter max DC (${inv.maxVdc}V) — risk of damage` });
+    } else if (stringVoc > inv.maxVdc * 0.95) {
+      checks.push({ ok: true,  msg: `String Voc (${fmt(stringVoc,1)}V) near max — verify cold-weather Voc margin` });
+    }
+    if (stringVmp < inv.mpptMinV) {
+      checks.push({ ok: false, msg: `String Vmp (${fmt(stringVmp,1)}V) BELOW MPPT min (${inv.mpptMinV}V)` });
+    } else if (stringVmp > inv.mpptMaxV) {
+      checks.push({ ok: false, msg: `String Vmp (${fmt(stringVmp,1)}V) ABOVE MPPT max (${inv.mpptMaxV}V)` });
+    }
+
+    // MPPT input current
+    if (mpptCurrentIsc > inv.maxMpptCurrent) {
+      checks.push({ ok: false, msg: `MPPT input Isc (${fmt(mpptCurrentIsc,1)}A) EXCEEDS inverter MPPT max (${inv.maxMpptCurrent}A) — reduce parallel strings on this MPPT` });
+    } else if (mpptCurrentIsc > inv.maxMpptCurrent * 0.95) {
+      checks.push({ ok: true,  msg: `MPPT input Isc (${fmt(mpptCurrentIsc,1)}A) within ${Math.round((1 - mpptCurrentIsc/inv.maxMpptCurrent)*100)}% of inverter limit (${inv.maxMpptCurrent}A) — verify cold-weather Isc` });
+    }
+
+    // MPPT index sanity checks
+    if (g.mpptIndex > inv.mpptCount) {
+      checks.push({ ok: false, msg: `MPPT #${g.mpptIndex} does not exist on ${inv.name} — it has ${inv.mpptCount} MPPT input${inv.mpptCount === 1 ? '' : 's'}` });
+    }
+    const mpptCollision = peerGroups.filter(x => x.id !== g.id && x.mpptIndex === g.mpptIndex && g.mpptIndex > 0);
+    if (mpptCollision.length > 0) {
+      checks.push({ ok: false, msg: `MPPT #${g.mpptIndex} on "${invDef.label}" is already assigned to "${mpptCollision[0].label}"` });
+    }
+
+    // Aggregate per-inverter checks
+    if (peerStrings > inv.maxStrings)
+      checks.push({ ok: false, msg: `${peerStrings} total strings on "${invDef.label}" exceed input capacity (${inv.maxStrings})` });
+    if (peerKwDC > totalInvPvKw)
+      checks.push({ ok: false, msg: `Total DC on "${invDef.label}" (${fmt(peerKwDC,2)} kW) exceeds inverter PV input limit (${fmt(totalInvPvKw,1)} kW)` });
+    if (dcAcRatio > 1.35)
+      checks.push({ ok: true,  msg: `DC:AC ratio ${fmt(dcAcRatio,2)} is high — clipping likely` });
+    else if (dcAcRatio < 0.85 && dcAcRatio > 0)
+      checks.push({ ok: true,  msg: `DC:AC ratio ${fmt(dcAcRatio,2)} is low — inverter oversized` });
+  }
+  const valid = checks.every(c => c.ok);
+
+  return {
+    panel: p, inv, invDef, invDefLabel: invDef.label,
+    totalPanels, groupKwDC, stringVoc, stringVmp,
+    stringCurrent, stringIsc, mpptCurrentImp, mpptCurrentIsc, mpptCurrentNec,
+    totalInvKw, totalInvPvKw, dcAcRatio, acCurrentPerInv,
+    peerGroups, peerStrings, peerKwDC, isShared,
+    checks, valid
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   AGGREGATE CALCULATION
+// ════════════════════════════════════════════════════════════════════════════
+
+function calcAll() {
+  const inp = getInputs();
+  const groups = state.groups.map(g => ({ g, r: calcGroup(g) }));
+
+  // Totals — count each physical inverter ONCE from state.inverters
+  const totalPanels    = groups.reduce((s, x) => s + x.r.totalPanels, 0);
+  const totalKwDC      = groups.reduce((s, x) => s + x.r.groupKwDC, 0);
+  const totalInverters = state.inverters.length;
+  const totalInvKwAC   = state.inverters.reduce((s, invDef) => s + INVERTERS[invDef.model].ratedKw, 0);
+  const totalAcCurrent = state.inverters.reduce((s, invDef) => {
+    const inv = INVERTERS[invDef.model];
+    return s + (inv.ratedKw * 1000) / inv.acV;
+  }, 0);
+  const allValid = groups.every(x => x.r.valid) && state.inverters.length > 0;
+
+  // Battery — minimum required vs user-configured per-inverter counts
+  const dailyKwh    = inp.monthlyKwh / 30;
+  const reqBatKwh   = dailyKwh * inp.autonomy / inp.batDod;
+  const reqNumBat   = Math.ceil(reqBatKwh / inp.batKwh);
+  // Sum user-configured battery counts across all inverters
+  const numBat      = state.inverters.reduce((s, inv) => s + (inv.batteryCount || 0), 0);
+  const totalBatKwh = numBat * inp.batKwh;
+  // Status vs requirement
+  const batShortage = Math.max(0, reqNumBat - numBat);
+  const batExcess   = Math.max(0, numBat - reqNumBat);
+  const batStatus   = numBat === 0 ? 'none'
+                    : numBat < reqNumBat ? 'under'
+                    : numBat > reqNumBat ? 'over'
+                    : 'match';
+
+  // Production
+  const annualKwh    = totalKwDC * inp.psh * 365 * inp.eff;
+  const annualSavings = annualKwh * inp.rate;
+
+  // Cost — aggregate panels from groups, inverters from state.inverters (each is one physical unit)
+  const panelLineItems = {};   // panelKey -> { qty, unit, name }
+  const invLineItems   = {};   // model    -> { qty, unit, name }
+  for (const { g, r } of groups) {
+    if (!panelLineItems[g.panelKey])
+      panelLineItems[g.panelKey] = { qty: 0, unit: r.panel.cost, name: r.panel.name };
+    panelLineItems[g.panelKey].qty += r.totalPanels;
+  }
+  for (const invDef of state.inverters) {
+    const inv = INVERTERS[invDef.model];
+    if (!invLineItems[invDef.model])
+      invLineItems[invDef.model] = { qty: 0, unit: inv.cost, name: inv.name };
+    invLineItems[invDef.model].qty += 1;
+  }
+
+  const panelHardware = Object.values(panelLineItems).reduce((s, x) => s + x.qty * x.unit, 0);
+  const invHardware   = Object.values(invLineItems).reduce((s, x) => s + x.qty * x.unit, 0);
+  const batHardware   = numBat * inp.batCost;
+  const rackCost      = totalPanels * 45;
+  const monCost       = 350;
+  const miscCost      = 1200;
+  const permitCost    = 1500;
+  const hardwareCost  = panelHardware + invHardware + batHardware + rackCost + monCost + miscCost + permitCost;
+  const bosCost       = hardwareCost * inp.bosPct;
+  const grossCost     = hardwareCost + bosCost;
+  const itcAmount     = grossCost * inp.itcPct;
+  const netCost       = grossCost - itcAmount;
+  const simplePayback = annualSavings > 0 ? netCost / annualSavings : Infinity;
+
+  // 25-year NPV / cash flow
+  const discRate = 0.05;
+  let npv = -netCost;
+  const cumFlow = [-netCost];
+  let s = annualSavings;
+  for (let y = 1; y <= 25; y++) {
+    s *= (1 + inp.esc);
+    npv += s / Math.pow(1 + discRate, y);
+    cumFlow.push(cumFlow[cumFlow.length - 1] + s);
+  }
+
+  // Main panel total backfeed
+  const mainBkFeed = totalAcCurrent * 1.25;
+
+  return {
+    inp, groups,
+    totalPanels, totalKwDC, totalInvKwAC, totalInverters, totalAcCurrent, mainBkFeed, allValid,
+    dailyKwh, reqBatKwh, reqNumBat, numBat, totalBatKwh, batShortage, batExcess, batStatus,
+    annualKwh, annualSavings,
+    panelLineItems, invLineItems,
+    panelHardware, invHardware, batHardware, rackCost, monCost, miscCost, permitCost,
+    hardwareCost, bosCost, grossCost, itcAmount, netCost, simplePayback, npv, cumFlow
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   INPUT GETTERS
+// ════════════════════════════════════════════════════════════════════════════
+
+function getInputs() {
+  const pshSel = document.getElementById('psh').value;
+  const psh = pshSel === 'custom'
+    ? parseFloat(document.getElementById('custom-psh').value)
+    : parseFloat(pshSel);
+
+  const batSel = document.getElementById('bat-model').value;
+  let batKwh, batDod, batCost;
+  if (batSel === 'custom') {
+    batKwh  = parseFloat(document.getElementById('bat-kwh').value);
+    batDod  = parseFloat(document.getElementById('bat-dod').value) / 100;
+    batCost = parseFloat(document.getElementById('bat-cost-custom').value);
+  } else {
+    const [k, d, c] = batSel.split(',');
+    batKwh = parseFloat(k); batDod = parseFloat(d) / 100; batCost = parseFloat(c);
+  }
+
+  return {
+    monthlyKwh: parseFloat(document.getElementById('monthly-kwh').value),
+    psh,
+    rate:    parseFloat(document.getElementById('rate').value),
+    esc:     parseFloat(document.getElementById('esc').value) / 100,
+    eff:     parseFloat(document.getElementById('eff').value) / 100,
+    batKwh, batDod, batCost,
+    autonomy: parseFloat(document.getElementById('autonomy').value),
+    bosPct:  parseFloat(document.getElementById('bos').value) / 100,
+    itcPct:  parseFloat(document.getElementById('itc').value) / 100,
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   RENDER — STRING GROUP CARDS
+// ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
+//   RENDER — INVERTERS LIST
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderInverters() {
+  const list  = document.getElementById('inverters-list');
+  const badge = document.getElementById('inv-count-badge');
+  const inp   = getInputs();
+
+  badge.textContent = `${state.inverters.length} inv${state.inverters.length === 1 ? '' : 's'}`;
+
+  if (state.inverters.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:18px">
+      <p>No physical inverters defined.</p>
+      <p style="margin-top:6px;font-size:0.82rem">Add an inverter first, then create string groups that route into its MPPT inputs.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  state.inverters.forEach((invDef, idx) => {
+    const inv = INVERTERS[invDef.model];
+    // Compute utilization for this physical inverter
+    const myGroups = state.groups.filter(g => g.inverterId === invDef.id);
+    const myStrings = myGroups.reduce((s, g) => s + g.numStrings, 0);
+    const myKwDC = myGroups.reduce((s, g) => {
+      const p = PANELS[g.panelKey];
+      return s + g.numStrings * g.panelsPerString * p.pmax / 1000;
+    }, 0);
+    const dcAc = inv.ratedKw > 0 ? myKwDC / inv.ratedKw : 0;
+    const stringsClass = myStrings > inv.maxStrings ? 'over' : (myStrings > inv.maxStrings * 0.9 ? 'warn' : 'ok');
+    const kwClass = myKwDC > inv.maxPvKw ? 'over' : (myKwDC > inv.maxPvKw * 0.9 ? 'warn' : 'ok');
+    const invalid = myStrings > inv.maxStrings || myKwDC > inv.maxPvKw;
+
+    // MPPT usage map
+    const mpptUsage = {};
+    for (const g of myGroups) {
+      mpptUsage[g.mpptIndex] = (mpptUsage[g.mpptIndex] || 0) + g.numStrings;
+    }
+    const mpptCells = [];
+    for (let i = 1; i <= inv.mpptCount; i++) {
+      const used = mpptUsage[i] || 0;
+      mpptCells.push(`<span style="display:inline-block;padding:1px 5px;margin:1px;border-radius:3px;background:${used > 0 ? 'rgba(108,193,135,0.2)' : 'rgba(143,163,188,0.1)'};color:${used > 0 ? 'var(--green2)' : 'var(--muted)'};font-size:0.7rem">MPPT${i}: ${used}str</span>`);
+    }
+
+    const modelOpts = Object.entries(INVERTERS).filter(([k]) => k !== 'custom').map(([k, v]) => {
+      const tag = v.type === 'hybrid' ? ' [hybrid]' : (v.type === 'micro' ? ' [micro]' : '');
+      return `<option value="${k}" ${k === invDef.model ? 'selected' : ''}>${v.name}${tag}</option>`;
+    }).join('');
+
+    const batCount  = invDef.batteryCount || 0;
+    const batKwhStr = fmt(batCount * inp.batKwh, 1);
+    const batCostStr = fmtD(batCount * inp.batCost);
+
+    const card = document.createElement('div');
+    card.className = 'inverter-card' + (invalid ? ' invalid' : '');
+    card.innerHTML = `
+      <input class="inv-label" data-inv-id="${invDef.id}" data-key="label" value="${invDef.label}">
+      <button class="btn-remove" data-inv-id="${invDef.id}" data-action="remove-inv">✕</button>
+      <select class="inv-model" data-inv-id="${invDef.id}" data-key="model">${modelOpts}</select>
+      <div class="inv-meta">
+        <b>${fmt(inv.ratedKw,1)} kW AC</b> · <b>${fmt(inv.maxPvKw,1)} kW PV max</b> · <b>${inv.maxVdc}V DC</b> · <b>${inv.mpptCount} MPPT</b> · <b>${inv.maxMpptCurrent}A/MPPT</b><br>
+        Loaded: <span class="util ${stringsClass}">${myStrings}/${inv.maxStrings} strings</span> · <span class="util ${kwClass}">${fmt(myKwDC,2)}/${fmt(inv.maxPvKw,1)} kW DC</span> · DC:AC <b>${fmt(dcAc,2)}</b><br>
+        ${mpptCells.join('')}
+      </div>
+      <div class="inv-battery">
+        <label style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">🔋 Batteries on this inverter</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <input type="number" min="0" max="20" step="1" value="${batCount}" data-inv-id="${invDef.id}" data-key="batteryCount"
+                 style="width:60px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:5px 8px;font-size:0.85rem;font-weight:700;text-align:center;outline:none">
+          <span style="font-size:0.75rem;color:var(--amber2);font-weight:600">× ${fmt(inp.batKwh, 1)} kWh = ${batKwhStr} kWh</span>
+          <span style="font-size:0.7rem;color:var(--muted);margin-left:auto">${batCostStr}</span>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Event handlers
+  list.querySelectorAll('[data-inv-id]').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const id = parseInt(e.target.dataset.invId);
+      const key = e.target.dataset.key;
+      const invDef = state.inverters.find(x => x.id === id);
+      if (!invDef || !key) return;
+      if (key === 'batteryCount') {
+        invDef[key] = Math.max(0, parseInt(e.target.value) || 0);
+      } else {
+        invDef[key] = e.target.value;
+      }
+      // If model changed, fix MPPT indexes on assigned groups that point to non-existent MPPTs
+      if (key === 'model') {
+        const inv = INVERTERS[invDef.model];
+        for (const g of state.groups) {
+          if (g.inverterId === id && g.mpptIndex > inv.mpptCount) g.mpptIndex = 1;
+        }
+      }
+      render();
+    });
+  });
+  list.querySelectorAll('[data-action="remove-inv"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.invId);
+      const used = state.groups.filter(g => g.inverterId === id);
+      if (used.length > 0 && !confirm(`This inverter has ${used.length} string group(s) assigned to it. Remove anyway? (Groups will become unassigned.)`)) return;
+      state.inverters = state.inverters.filter(x => x.id !== id);
+      // Orphan the groups (set inverterId to null)
+      for (const g of state.groups) if (g.inverterId === id) g.inverterId = null;
+      render();
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   RENDER — STRING GROUPS
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderGroups() {
+  const list = document.getElementById('groups-list');
+  const badge = document.getElementById('group-count-badge');
+
+  if (state.groups.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <p>No string groups configured yet.</p>
+      <p style="margin-top:8px">Click <b>+ Add String Group</b> to define a panel + MPPT combination.</p>
+    </div>`;
+    badge.textContent = '0 strings';
+    return;
+  }
+
+  badge.textContent = `${state.groups.length} string${state.groups.length === 1 ? '' : 's'}`;
+
+  list.innerHTML = '';
+  state.groups.forEach((g, idx) => {
+    const r = calcGroup(g);
+    const card = document.createElement('div');
+    card.className = 'group-card' + (r.valid ? '' : ' invalid');
+
+    const panelOpts = Object.entries(PANELS).map(([k, p]) =>
+      `<option value="${k}" ${k === g.panelKey ? 'selected' : ''}>${p.name} (${p.pmax}W)</option>`
+    ).join('');
+
+    // "Assigned to" dropdown — list all physical inverters
+    let invAssignOpts = '<option value="">— Choose inverter —</option>';
+    if (state.inverters.length > 0) {
+      invAssignOpts += state.inverters.map(invDef => {
+        const inv = INVERTERS[invDef.model];
+        return `<option value="${invDef.id}" ${invDef.id === g.inverterId ? 'selected' : ''}>${invDef.label} — ${inv.name}</option>`;
+      }).join('');
+    }
+
+    // MPPT # dropdown — depends on assigned inverter
+    let mpptOpts = '';
+    if (r.inv) {
+      for (let i = 1; i <= r.inv.mpptCount; i++) {
+        mpptOpts += `<option value="${i}" ${i === g.mpptIndex ? 'selected' : ''}>MPPT #${i}</option>`;
+      }
+    } else {
+      mpptOpts = `<option value="${g.mpptIndex || 1}" selected>MPPT #${g.mpptIndex || 1}</option>`;
+    }
+
+    const checksHtml = r.checks.length
+      ? r.checks.map(c =>
+          `<div class="status ${c.ok ? 'ok' : 'fail'}">${c.ok ? '⚠' : '✗'} ${c.msg}</div>`
+        ).join('')
+      : `<div class="status ok">✓ Configuration valid — all electrical limits OK</div>`;
+
+    const typeBadge = (r.inv && r.inv.type === 'hybrid')
+      ? '<span class="badge hybrid">HYBRID</span>'
+      : ((r.inv && r.inv.type === 'micro') ? '<span class="badge hybrid">MICRO</span>' : '');
+    const sharedBadge = r.isShared
+      ? '<span class="badge" style="background:rgba(108,193,135,0.15);color:var(--green);border-color:rgba(108,193,135,0.3)">🔗 SHARED INV</span>'
+      : '';
+
+    const mpptRows = r.inv ? `
+          <tr><td>String Voc</td><td class="${r.stringVoc > r.inv.maxVdc ? 'fail' : 'ok'}">${fmt(r.stringVoc, 1)} V <small>(max ${r.inv.maxVdc})</small></td></tr>
+          <tr><td>String Vmp</td><td class="${(r.stringVmp < r.inv.mpptMinV || r.stringVmp > r.inv.mpptMaxV) ? 'fail' : 'ok'}">${fmt(r.stringVmp, 1)} V <small>(MPPT ${r.inv.mpptMinV}–${r.inv.mpptMaxV})</small></td></tr>
+          <tr><td>Per-string current <small>(Imp / Isc)</small></td><td>${fmt(r.stringCurrent, 2)} A / ${fmt(r.stringIsc, 2)} A</td></tr>
+          <tr><td><b style="color:var(--amber2)">MPPT input — Imp</b> <small>(${g.numStrings}∥)</small></td><td><b>${fmt(r.mpptCurrentImp, 2)} A</b></td></tr>
+          <tr><td><b style="color:var(--amber2)">MPPT input — Isc</b></td><td class="${r.mpptCurrentIsc > r.inv.maxMpptCurrent ? 'fail' : (r.mpptCurrentIsc > r.inv.maxMpptCurrent * 0.95 ? '' : 'ok')}"><b>${fmt(r.mpptCurrentIsc, 2)} A</b> <small>(inv. max ${r.inv.maxMpptCurrent})</small></td></tr>
+          <tr><td>OCPD sizing <small>(NEC × 1.25)</small></td><td>${fmt(r.mpptCurrentNec, 2)} A</td></tr>
+          <tr><td>Inverter AC capacity</td><td>${fmt(r.totalInvKw, 1)} kW</td></tr>
+          <tr><td>DC:AC on this inverter</td><td>${fmt(r.dcAcRatio, 2)}</td></tr>
+    ` : '';
+
+    card.innerHTML = `
+      <div class="group-head">
+        <div class="group-title">
+          <span style="opacity:0.6">${idx + 1}.</span>
+          <input class="title-input" data-id="${g.id}" data-key="label" value="${g.label}">
+          ${typeBadge}
+          ${sharedBadge}
+        </div>
+        <button class="btn-remove" data-id="${g.id}" data-action="remove-group">✕ Remove</button>
+      </div>
+
+      <div class="group-grid">
+        <div class="field full">
+          <label>Panel model</label>
+          <select data-id="${g.id}" data-key="panelKey">${panelOpts}</select>
+        </div>
+        <div class="field full">
+          <label>Assigned to (physical inverter)</label>
+          <select data-id="${g.id}" data-key="inverterId" ${state.inverters.length === 0 ? 'disabled' : ''}>${invAssignOpts}</select>
+        </div>
+        <div class="field">
+          <label>MPPT input #</label>
+          <select data-id="${g.id}" data-key="mpptIndex" ${!r.inv ? 'disabled' : ''}>${mpptOpts}</select>
+        </div>
+        <div class="field"></div>
+        <div class="field">
+          <label># Strings (parallel into this MPPT)</label>
+          <input type="number" min="1" max="20" step="1" value="${g.numStrings}" data-id="${g.id}" data-key="numStrings">
+        </div>
+        <div class="field">
+          <label>Panels per String (series)</label>
+          <input type="number" min="1" max="30" step="1" value="${g.panelsPerString}" data-id="${g.id}" data-key="panelsPerString">
+        </div>
+      </div>
+
+      <div class="group-computed">
+        <table>
+          <tr><td>Panel: ${r.panel.name}</td><td>${r.panel.pmax}W &nbsp; Voc ${fmt(r.panel.voc,1)}V</td></tr>
+          <tr><td>Assigned to: <b style="color:var(--green2)">${r.invDefLabel}</b></td><td style="font-size:0.72rem;color:var(--muted)">${r.inv ? r.inv.name : '—'}</td></tr>
+          ${r.isShared ? `<tr><td colspan="2" style="color:var(--green);font-size:0.75rem">↳ Shares this inverter with ${r.peerGroups.length - 1} other group(s)</td></tr>` : ''}
+          <tr><td>Total panels in group</td><td>${r.totalPanels}</td></tr>
+          <tr><td>Group array size (DC)</td><td>${fmt(r.groupKwDC, 2)} kW</td></tr>
+          ${mpptRows}
+        </table>
+        ${checksHtml}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Event handlers for group cards
+  list.querySelectorAll('[data-id]').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const id  = parseInt(e.target.dataset.id);
+      const key = e.target.dataset.key;
+      const g = state.groups.find(x => x.id === id);
+      if (!g) return;
+      const v = e.target.value;
+      if (key === 'panelKey' || key === 'label') {
+        g[key] = v;
+      } else if (key === 'inverterId') {
+        g[key] = v ? parseInt(v) : null;
+        // If newly-selected inverter has fewer MPPTs than current mpptIndex, reset to 1
+        if (g[key] !== null) {
+          const newInv = state.inverters.find(x => x.id === g[key]);
+          if (newInv) {
+            const newInvDef = INVERTERS[newInv.model];
+            if (g.mpptIndex > newInvDef.mpptCount) g.mpptIndex = 1;
+          }
+        }
+      } else if (key === 'mpptIndex') {
+        g[key] = Math.max(1, parseInt(v) || 1);
+      } else {
+        g[key] = Math.max(1, parseInt(v) || 1);
+      }
+      render();
+    });
+  });
+  list.querySelectorAll('[data-action="remove-group"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      state.groups = state.groups.filter(g => g.id !== id);
+      render();
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   RENDER — RESULTS
+// ════════════════════════════════════════════════════════════════════════════
+
+let chartRef = null;
+
+function renderResults() {
+  const r = calcAll();
+  const inp = r.inp;
+
+  // ── Aggregate banner ──
+  const banner = document.getElementById('agg-summary');
+  banner.innerHTML = `
+    <div class="item">
+      <div class="lbl">Total Array DC</div>
+      <div class="val">${fmt(r.totalKwDC, 2)} <small>kW</small></div>
+    </div>
+    <div class="item">
+      <div class="lbl">Total Panels</div>
+      <div class="val">${r.totalPanels}</div>
+    </div>
+    <div class="item">
+      <div class="lbl">Total Inverters</div>
+      <div class="val">${r.totalInverters}</div>
+    </div>
+    <div class="item">
+      <div class="lbl">Total Inverter AC</div>
+      <div class="val">${fmt(r.totalInvKwAC, 1)} <small>kW</small></div>
+    </div>
+    <div class="item">
+      <div class="lbl">Overall DC:AC</div>
+      <div class="val">${r.totalInvKwAC > 0 ? fmt(r.totalKwDC / r.totalInvKwAC, 2) : '—'}</div>
+    </div>
+    <div class="item">
+      <div class="lbl">Configuration</div>
+      <div class="val ${r.allValid ? 'green' : ''}" style="${r.allValid ? '' : 'color:var(--red)'}">
+        ${r.allValid ? '✓ Valid' : '✗ Issues'}
+      </div>
+    </div>
+  `;
+
+  // ── KPIs ──
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-label">Array Size (DC)</div>
+      <div class="kpi-value">${fmt(r.totalKwDC, 2)}</div>
+      <div class="kpi-unit">kW DC</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Panels</div>
+      <div class="kpi-value">${r.totalPanels}</div>
+      <div class="kpi-unit">${state.groups.length} string group${state.groups.length===1?'':'s'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Battery Units</div>
+      <div class="kpi-value">${r.numBat}</div>
+      <div class="kpi-unit">${fmt(r.totalBatKwh, 1)} kWh installed</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Annual Production</div>
+      <div class="kpi-value">${fmtK(r.annualKwh)}</div>
+      <div class="kpi-unit">kWh/year</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Annual Savings</div>
+      <div class="kpi-value">${fmtD(r.annualSavings)}</div>
+      <div class="kpi-unit">Year 1</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Net System Cost</div>
+      <div class="kpi-value">${fmtD(r.netCost)}</div>
+      <div class="kpi-unit">after ITC</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Simple Payback</div>
+      <div class="kpi-value">${isFinite(r.simplePayback) ? fmt(r.simplePayback, 1) : '—'}</div>
+      <div class="kpi-unit">years</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">25-Year NPV</div>
+      <div class="kpi-value">${fmtD(r.npv)}</div>
+      <div class="kpi-unit">@ 5% discount</div>
+    </div>
+  `;
+
+  // ── Card row: Battery + Group Summary ──
+  const cardRow = document.getElementById('card-row-1');
+  const groupSumRows = r.groups.map(({ g, r: gr }, idx) => `
+    <tr>
+      <td>${idx + 1}. ${g.label}</td>
+      <td class="num">${gr.totalPanels} × ${gr.panel.pmax}W</td>
+      <td class="num">${fmt(gr.groupKwDC, 2)} kW</td>
+      <td class="num">${gr.valid ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">✗</span>'}</td>
+    </tr>
+  `).join('');
+
+  // Battery status pill
+  const batStatusLabel = {
+    'none':  '⚠ No batteries configured',
+    'under': `⚠ Under-sized by ${r.batShortage} unit${r.batShortage===1?'':'s'}`,
+    'match': '✓ Matches minimum requirement',
+    'over':  `↑ ${r.batExcess} unit${r.batExcess===1?'':'s'} over minimum (extra capacity)`
+  }[r.batStatus];
+  const batStatusColor = { none: 'var(--red)', under: 'var(--red)', match: 'var(--green)', over: 'var(--amber2)' }[r.batStatus];
+
+  // Per-inverter battery breakdown
+  const batBreakdown = state.inverters.map(invDef =>
+    `<tr style="font-size:0.75rem"><td style="color:var(--muted);padding-left:14px">↳ ${invDef.label}</td><td class="num" style="color:var(--green2)">${invDef.batteryCount || 0} × ${fmt(inp.batKwh,1)} kWh</td></tr>`
+  ).join('');
+
+  cardRow.innerHTML = `
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="4" width="11" height="8" rx="1.5" stroke="#f4a426" stroke-width="1.5"/>
+          <path d="M13 7h1.5v2H13" stroke="#f4a426" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="4" y="6" width="3" height="4" rx="0.5" fill="#f4a426"/>
+          <rect x="8.5" y="6" width="3" height="4" rx="0.5" fill="#f4a426" opacity=".4"/>
+        </svg>
+        Battery Sizing
+      </div>
+      <table class="data">
+        <tr><td>Daily load</td><td class="num">${fmt(r.dailyKwh, 1)} kWh</td></tr>
+        <tr><td>Autonomy target</td><td class="num">${fmt(inp.autonomy, 2)} days</td></tr>
+        <tr><td>DoD</td><td class="num">${fmt(inp.batDod * 100, 0)}%</td></tr>
+        <tr><td>Required storage</td><td class="num">${fmt(r.reqBatKwh, 1)} kWh</td></tr>
+        <tr><td>Usable / unit</td><td class="num">${fmt(inp.batKwh, 1)} kWh</td></tr>
+        <tr><td>Minimum units required</td><td class="num">${r.reqNumBat}</td></tr>
+        <tr><td class="total-row">Configured (per-inverter sum)</td><td class="total-num" style="color:${batStatusColor}">${r.numBat}</td></tr>
+        ${batBreakdown}
+        <tr><td>Total installed capacity</td><td class="total-num">${fmt(r.totalBatKwh, 1)} kWh</td></tr>
+        <tr><td colspan="2" style="padding-top:8px;font-size:0.78rem;color:${batStatusColor};font-weight:600;text-align:center">${batStatusLabel}</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="3" width="6" height="4" rx="0.6" fill="#f4a426"/>
+          <rect x="9" y="3" width="6" height="4" rx="0.6" fill="#f4a426"/>
+          <rect x="1" y="9" width="6" height="4" rx="0.6" fill="#f4a426" opacity=".5"/>
+          <rect x="9" y="9" width="6" height="4" rx="0.6" fill="#f4a426" opacity=".5"/>
+        </svg>
+        Per-Group Summary
+      </div>
+      <table class="data">
+        <thead><tr><th>Group</th><th style="text-align:right">Panels</th><th style="text-align:right">DC Size</th><th style="text-align:right">OK?</th></tr></thead>
+        <tbody>${groupSumRows || '<tr><td colspan="4" style="color:var(--muted);text-align:center">No groups configured</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+
+  // ── Wire & Breaker Table ──
+  let wireRows = '';
+  // DC string rows — one per string group (each MPPT input has its own DC wiring)
+  r.groups.forEach(({ g, r: gr }, idx) => {
+    const strCur    = gr.stringCurrent;
+    const strCurNec = strCur * 1.25;
+    const where = gr.invDef ? `${gr.invDefLabel} · MPPT ${g.mpptIndex}` : '— unassigned —';
+    wireRows += `
+      <tr>
+        <td>Grp ${idx + 1} (${where}) — PV String DC — ${gr.panel.name}</td>
+        <td class="num">${fmt(strCur, 1)}</td>
+        <td class="num">${fmt(strCurNec, 1)}</td>
+        <td class="num">AWG ${wireAwg(strCurNec)}</td>
+        <td class="num">${stdBreaker(strCurNec)}</td>
+      </tr>
+    `;
+  });
+  // AC output rows — one per physical inverter
+  state.inverters.forEach((invDef) => {
+    const inv = INVERTERS[invDef.model];
+    const acCur = (inv.ratedKw * 1000) / inv.acV;
+    const acCurNec = acCur * 1.25;
+    wireRows += `
+      <tr>
+        <td><b style="color:var(--green2)">${invDef.label}</b> — AC Output (${inv.name})</td>
+        <td class="num">${fmt(acCur, 1)}</td>
+        <td class="num">${fmt(acCurNec, 1)}</td>
+        <td class="num">AWG ${wireAwg(acCurNec)}</td>
+        <td class="num">${stdBreaker(acCurNec)}</td>
+      </tr>
+    `;
+  });
+  wireRows += `
+    <tr>
+      <td class="total-row">Main Panel Backfeed (NEC 705.12)</td>
+      <td class="num">${fmt(r.totalAcCurrent, 1)}</td>
+      <td class="total-num">${fmt(r.mainBkFeed, 1)}</td>
+      <td class="total-num">AWG ${wireAwg(r.mainBkFeed)}</td>
+      <td class="total-num">${stdBreaker(r.mainBkFeed)}</td>
+    </tr>
+  `;
+  document.getElementById('wire-table').innerHTML = wireRows;
+
+  // ── BOM Table ──
+  let bom = '';
+  Object.values(r.panelLineItems).forEach(item => {
+    bom += `<tr><td>${item.name}</td><td class="num">${item.qty}</td><td class="num">${fmtD(item.unit)}</td><td class="num">${fmtD(item.qty * item.unit)}</td></tr>`;
+  });
+  Object.values(r.invLineItems).forEach(item => {
+    bom += `<tr><td>${item.name}</td><td class="num">${item.qty}</td><td class="num">${fmtD(item.unit)}</td><td class="num">${fmtD(item.qty * item.unit)}</td></tr>`;
+  });
+  bom += `
+    <tr><td>Battery Units</td><td class="num">${r.numBat}</td><td class="num">${fmtD(inp.batCost)}</td><td class="num">${fmtD(r.batHardware)}</td></tr>
+    <tr><td>Mounting / Racking</td><td class="num">${r.totalPanels}</td><td class="num">$45</td><td class="num">${fmtD(r.rackCost)}</td></tr>
+    <tr><td>Monitoring System</td><td class="num">1</td><td class="num">${fmtD(r.monCost)}</td><td class="num">${fmtD(r.monCost)}</td></tr>
+    <tr><td>Wiring, Conduit, Disconnects, Misc</td><td class="num">—</td><td class="num">—</td><td class="num">${fmtD(r.miscCost)}</td></tr>
+    <tr><td>Permits &amp; Inspection</td><td class="num">—</td><td class="num">—</td><td class="num">${fmtD(r.permitCost)}</td></tr>
+    <tr><td>BOS + Labor (${Math.round(inp.bosPct*100)}% of hardware)</td><td class="num">—</td><td class="num">—</td><td class="num">${fmtD(r.bosCost)}</td></tr>
+    <tr><td class="total-row">Gross System Cost</td><td></td><td></td><td class="total-num">${fmtD(r.grossCost)}</td></tr>
+    <tr><td class="total-row">Federal ITC (${Math.round(inp.itcPct*100)}%)</td><td></td><td></td><td class="green-num">– ${fmtD(r.itcAmount)}</td></tr>
+    <tr><td class="total-row" style="font-size:1rem">Net Cost After ITC</td><td></td><td></td><td class="total-num" style="font-size:1.1rem">${fmtD(r.netCost)}</td></tr>
+  `;
+  document.getElementById('bom-table').innerHTML = bom;
+
+  // ── Chart ──
+  const ctx = document.getElementById('payback-chart').getContext('2d');
+  const labels = Array.from({ length: 26 }, (_, i) => i === 0 ? 'Now' : `Yr ${i}`);
+  const colors = r.cumFlow.map(v => v >= 0 ? 'rgba(39,174,96,0.85)' : 'rgba(231,76,60,0.85)');
+
+  if (chartRef) { chartRef.destroy(); chartRef = null; }
+  if (window.Chart) {
+    chartRef = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Cumulative Cash Flow ($)',
+          data: r.cumFlow,
+          backgroundColor: colors,
+          borderWidth: 0,
+          borderRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => ` ${fmtD(Math.abs(c.raw))} ${c.raw < 0 ? '(loss)' : '(gain)'}`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#8fa3bc', font: { size: 10 } }, grid: { color: 'rgba(46,74,102,0.3)' } },
+          y: {
+            ticks: { color: '#8fa3bc', font: { size: 10 }, callback: v => `$${(v/1000).toFixed(0)}k` },
+            grid: { color: 'rgba(46,74,102,0.3)' }
+          }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   RENDER — LIBRARY REFERENCE
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderLibRef() {
+  const c = document.getElementById('lib-ref-content');
+  const panelRows = Object.entries(PANELS).filter(([k]) => k !== 'custom').map(([k, p]) =>
+    `<tr><td>${p.name}</td><td>${p.pmax} W</td><td>${fmt(p.voc,1)} V</td><td>${fmt(p.vmp,1)} V</td><td>${fmt(p.isc,1)} A</td><td>${fmt(p.imp,2)} A</td><td>${fmtD(p.cost)}</td><td style="color:var(--muted)">${p.note}</td></tr>`
+  ).join('');
+  const invRows = Object.entries(INVERTERS).filter(([k]) => k !== 'custom').map(([k, v]) =>
+    `<tr><td>${v.name}</td><td>${fmt(v.ratedKw,1)} kW</td><td>${fmt(v.maxPvKw,1)} kW</td><td>${v.maxVdc} V</td><td>${v.mpptMinV}–${v.mpptMaxV} V</td><td>${v.mpptCount}</td><td>${v.maxMpptCurrent} A</td><td>${v.maxStrings}</td><td>${fmtD(v.cost)}</td><td style="color:var(--muted)">${v.type} · ${v.note}</td></tr>`
+  ).join('');
+
+  c.innerHTML = `
+    <p style="margin-top:10px;color:var(--muted);font-size:0.78rem">Default specs based on typical datasheet values. Verify against manufacturer datasheet before installation.</p>
+    <div style="margin-top:10px"><b style="color:var(--amber2)">Panels</b></div>
+    <table>
+      <thead><tr><th>Model</th><th>Pmax</th><th>Voc</th><th>Vmp</th><th>Isc</th><th>Imp</th><th>Cost</th><th>Notes</th></tr></thead>
+      <tbody>${panelRows}</tbody>
+    </table>
+    <div style="margin-top:14px"><b style="color:var(--amber2)">Inverters</b></div>
+    <table>
+      <thead><tr><th>Model</th><th>AC kW</th><th>Max PV</th><th>Vmax DC</th><th>MPPT V Range</th><th>#MPPT</th><th>Imax/MPPT</th><th>Strings</th><th>Cost</th><th>Notes</th></tr></thead>
+      <tbody>${invRows}</tbody>
+    </table>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   TOP-LEVEL RENDER
+// ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
+//   SCHEMATIC VIEW — Visual layout editor
+// ════════════════════════════════════════════════════════════════════════════
+
+const SCH = {
+  STR_W: 130, STR_H: 86,
+  INV_W: 200, INV_H: 110,
+  CMB_W: 110, CMB_H: 60,
+  PORT_R: 6,
+  GRID: 20,
+  NS: 'http://www.w3.org/2000/svg',
+};
+
+let currentTool   = 'select';
+let connectPending = null;   // { id, label } when first-clicked a string while in connect mode
+let dragState     = null;   // { type, id, startX, startY, objStartX, objStartY }
+let schHandlersBound = false;
+
+function ensureSchLayout() {
+  let invX = 80, invY = 360;
+  for (const inv of state.inverters) {
+    if (inv.x == null) { inv.x = invX; inv.y = invY; invX += SCH.INV_W + 80; }
+  }
+  let gX = 40, gY = 40;
+  for (const g of state.groups) {
+    if (g.x == null) { g.x = gX; g.y = gY; gX += SCH.STR_W + 20; }
+  }
+  for (const c of state.combiners) {
+    if (c.x == null) { c.x = 200; c.y = 220; }
+  }
+}
+
+function autoLayoutSchematic() {
+  const invY = 360;
+  let invX = 60;
+  for (const inv of state.inverters) {
+    inv.x = invX; inv.y = invY;
+    invX += SCH.INV_W + 80;
+  }
+  const byInv = {};
+  for (const g of state.groups) {
+    const k = g.inverterId ?? 'orphan';
+    (byInv[k] = byInv[k] || []).push(g);
+  }
+  for (const inv of state.inverters) {
+    const list = byInv[inv.id] || [];
+    if (list.length === 0) continue;
+    const cx = inv.x + SCH.INV_W / 2;
+    const totalW = list.length * SCH.STR_W + (list.length - 1) * 16;
+    let x = cx - totalW / 2;
+    for (const g of list) { g.x = x; g.y = 40; x += SCH.STR_W + 16; }
+  }
+  let oX = 30;
+  for (const g of (byInv.orphan || [])) { g.x = oX; g.y = 200; oX += SCH.STR_W + 16; }
+}
+
+function svgPoint(svg, evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function mpptPortPos(invDef, mpptIdx, inv) {
+  const spacing = SCH.INV_W / (invDef.mpptCount + 1);
+  return { x: inv.x + spacing * mpptIdx, y: inv.y };
+}
+
+function el(tag, attrs = {}, html = '') {
+  const e = document.createElementNS(SCH.NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (html) e.innerHTML = html;
+  return e;
+}
+
+function renderSchematic() {
+  ensureSchLayout();
+  const svg = document.getElementById('schematic');
+  if (!svg) return;
+  svg.innerHTML = '';
+
+  // Grid pattern
+  svg.appendChild(el('defs', {}, `
+    <pattern id="sch-grid" width="${SCH.GRID}" height="${SCH.GRID}" patternUnits="userSpaceOnUse">
+      <path d="M ${SCH.GRID} 0 L 0 0 0 ${SCH.GRID}" fill="none" stroke="rgba(46,74,102,0.35)" stroke-width="0.5"/>
+    </pattern>
+    <marker id="sch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4a426"/>
+    </marker>
+  `));
+  svg.appendChild(el('rect', {
+    x: 0, y: 0, width: 1000, height: 500,
+    fill: 'url(#sch-grid)',
+    'data-action': 'canvas'
+  }));
+
+  // Connections (drawn first so they're behind nodes)
+  for (const g of state.groups) {
+    if (g.inverterId == null) continue;
+    const inv = state.inverters.find(x => x.id === g.inverterId);
+    if (!inv) continue;
+    const invDef = INVERTERS[inv.model];
+    const port = mpptPortPos(invDef, Math.min(g.mpptIndex, invDef.mpptCount), inv);
+    const r = calcGroup(g);
+    const lineColor = r.valid ? '#f4a426' : '#e74c3c';
+    const fromX = g.x + SCH.STR_W / 2;
+    const fromY = g.y + SCH.STR_H;
+    const midY = (fromY + port.y) / 2;
+    const path = el('path', {
+      d: `M ${fromX} ${fromY} C ${fromX} ${midY}, ${port.x} ${midY}, ${port.x} ${port.y}`,
+      stroke: lineColor,
+      'stroke-width': 2.5,
+      'stroke-dasharray': r.valid ? '0' : '6 4',
+      fill: 'none'
+    });
+    svg.appendChild(path);
+  }
+
+  // Combiners (visual only)
+  for (const c of state.combiners) {
+    const g = el('g', {
+      transform: `translate(${c.x},${c.y})`,
+      'data-type': 'combiner',
+      'data-id': c.id,
+      class: 'sch-node',
+      style: `cursor:${currentTool === 'select' ? 'move' : 'pointer'}`
+    }, `
+      <rect width="${SCH.CMB_W}" height="${SCH.CMB_H}" rx="6" fill="#243b55" stroke="#8fa3bc" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="${SCH.CMB_W/2}" y="22" text-anchor="middle" fill="#8fa3bc" font-size="11" font-weight="700" font-family="Arial">Combiner</text>
+      <text x="${SCH.CMB_W/2}" y="38" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${c.label}</text>
+      <text x="${SCH.CMB_W/2}" y="52" text-anchor="middle" fill="#8fa3bc" font-size="8" font-style="italic" font-family="Arial">(visual only)</text>
+    `);
+    svg.appendChild(g);
+  }
+
+  // String group nodes
+  for (const g of state.groups) {
+    const r = calcGroup(g);
+    const isPending = connectPending && connectPending.id === g.id;
+    const stroke = isPending ? '#27ae60' : (r.valid ? '#f4a426' : '#e74c3c');
+    const node = el('g', {
+      transform: `translate(${g.x},${g.y})`,
+      'data-type': 'group',
+      'data-id': g.id,
+      class: 'sch-node',
+      style: `cursor:${currentTool === 'select' ? 'move' : 'pointer'}`
+    }, `
+      <rect width="${SCH.STR_W}" height="${SCH.STR_H}" rx="6" fill="#162335" stroke="${stroke}" stroke-width="2"/>
+      <rect x="6" y="6" width="${SCH.STR_W - 12}" height="14" rx="3" fill="${stroke}" opacity="0.18"/>
+      <text x="${SCH.STR_W/2}" y="17" text-anchor="middle" fill="${stroke}" font-size="10" font-weight="700" font-family="Arial">${g.label}</text>
+      <text x="${SCH.STR_W/2}" y="34" text-anchor="middle" fill="#e8edf3" font-size="9" font-family="Arial">${r.panel.name.replace('SunGold ', '').slice(0, 22)}</text>
+      <text x="${SCH.STR_W/2}" y="48" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${g.numStrings} str × ${g.panelsPerString} pnl</text>
+      <text x="${SCH.STR_W/2}" y="62" text-anchor="middle" fill="#f7bf6a" font-size="10" font-weight="600" font-family="Arial">${fmt(r.groupKwDC, 2)} kW DC</text>
+      <text x="${SCH.STR_W/2}" y="${SCH.STR_H - 6}" text-anchor="middle" fill="#8fa3bc" font-size="8" font-family="Arial">${r.invDef ? `→ ${r.invDef.label} M${g.mpptIndex}` : '⚠ unassigned'}</text>
+    `);
+    svg.appendChild(node);
+  }
+
+  // Inverter nodes
+  for (const inv of state.inverters) {
+    const invDef = INVERTERS[inv.model];
+    let ports = '';
+    for (let i = 1; i <= invDef.mpptCount; i++) {
+      const px = (SCH.INV_W / (invDef.mpptCount + 1)) * i;
+      const portFill = (connectPending && currentTool === 'connect') ? '#27ae60' : '#f4a426';
+      ports += `
+        <circle cx="${px}" cy="0" r="${SCH.PORT_R}" fill="${portFill}" stroke="#0d1b2a" stroke-width="1.5"
+          data-mppt-port="${i}" data-inv-id="${inv.id}"
+          style="cursor:${currentTool === 'connect' ? 'crosshair' : 'inherit'}"/>
+        <text x="${px}" y="-11" text-anchor="middle" fill="#f4a426" font-size="9" font-weight="700" font-family="Arial">M${i}</text>
+      `;
+    }
+    const node = el('g', {
+      transform: `translate(${inv.x},${inv.y})`,
+      'data-type': 'inverter',
+      'data-id': inv.id,
+      class: 'sch-node',
+      style: `cursor:${currentTool === 'select' ? 'move' : 'pointer'}`
+    }, `
+      <rect width="${SCH.INV_W}" height="${SCH.INV_H}" rx="8" fill="#1a2d44" stroke="#6cc187" stroke-width="2"/>
+      <rect x="6" y="6" width="${SCH.INV_W - 12}" height="16" rx="3" fill="#6cc187" opacity="0.2"/>
+      <text x="${SCH.INV_W/2}" y="19" text-anchor="middle" fill="#6cc187" font-size="12" font-weight="700" font-family="Arial">${inv.label}</text>
+      <text x="${SCH.INV_W/2}" y="38" text-anchor="middle" fill="#e8edf3" font-size="10" font-family="Arial">${invDef.name}</text>
+      <text x="${SCH.INV_W/2}" y="54" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${fmt(invDef.ratedKw,1)} kW · ${invDef.maxVdc}V DC max</text>
+      <line x1="14" y1="62" x2="${SCH.INV_W-14}" y2="62" stroke="#2e4a66" stroke-width="1"/>
+      <text x="${SCH.INV_W/2}" y="78" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${invDef.mpptCount} MPPT · ${invDef.maxMpptCurrent}A per MPPT</text>
+      <text x="${SCH.INV_W/2}" y="${SCH.INV_H-8}" text-anchor="middle" fill="#f7bf6a" font-size="9" font-weight="600" font-family="Arial">AC out ${fmt((invDef.ratedKw*1000)/invDef.acV, 1)} A @ ${invDef.acV}V</text>
+      ${ports}
+    `);
+    svg.appendChild(node);
+  }
+
+  updateSchStatus();
+}
+
+function updateSchStatus() {
+  const s = document.getElementById('schematic-status');
+  if (!s) return;
+  const msgs = {
+    'select': '↖ <b>Select mode</b> — drag inverters and strings to rearrange the layout.',
+    'connect': connectPending
+      ? `━ <b>Connecting "${connectPending.label}"</b> — now click an MPPT port (M1, M2…) on the target inverter.`
+      : '━ <b>Connect mode</b> — click a string group, then click the MPPT port on the target inverter.',
+    'add-inverter': '+ <b>Add Inverter mode</b> — click anywhere on the canvas to place a new SGS-12K18MAX. Change its model in the inverter card above.',
+    'add-string':   '+ <b>Add String mode</b> — click anywhere on the canvas to place a new string group.',
+    'add-combiner': '+ <b>Add Combiner mode</b> — click to place a combiner box. (Visual documentation only — does not change calculations.)',
+    'delete':       '✕ <b>Delete mode</b> — click an inverter, string, or combiner to remove it.'
+  };
+  s.innerHTML = msgs[currentTool] || '';
+}
+
+function bindSchematicHandlers() {
+  if (schHandlersBound) return;
+  schHandlersBound = true;
+
+  // Toolbar buttons
+  document.querySelectorAll('[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentTool = btn.dataset.tool;
+      connectPending = null;
+      document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSchematic();
+    });
+  });
+  document.getElementById('schematic-fit')?.addEventListener('click', () => {
+    autoLayoutSchematic();
+    render();
+  });
+
+  const svg = document.getElementById('schematic');
+
+  svg.addEventListener('mousedown', (e) => {
+    const portEl = e.target.closest('[data-mppt-port]');
+    const nodeEl = e.target.closest('[data-type]');
+    const canvasEl = e.target.closest('[data-action="canvas"]');
+    const pt = svgPoint(svg, e);
+
+    // ─── ADD TOOLS ───
+    if (currentTool === 'add-inverter' && canvasEl && !nodeEl && !portEl) {
+      state.inverters.push({
+        id: nextInvId++,
+        model: 'sgs-12k18max',
+        label: `Inverter ${state.inverters.length + 1}`,
+        x: Math.max(0, pt.x - SCH.INV_W/2),
+        y: Math.max(0, pt.y - SCH.INV_H/2)
+      });
+      render();
+      return;
+    }
+    if (currentTool === 'add-string' && canvasEl && !nodeEl && !portEl) {
+      const firstInv = state.inverters[0] || null;
+      let mpptIndex = 1;
+      if (firstInv) {
+        const inv = INVERTERS[firstInv.model];
+        const used = new Set(state.groups.filter(g => g.inverterId === firstInv.id).map(g => g.mpptIndex));
+        for (let i = 1; i <= inv.mpptCount; i++) {
+          if (!used.has(i)) { mpptIndex = i; break; }
+        }
+      }
+      state.groups.push({
+        id: nextGroupId++,
+        label: `String ${state.groups.length + 1}`,
+        panelKey: 'sgn-450',
+        inverterId: firstInv ? firstInv.id : null,
+        mpptIndex,
+        numStrings: 1,
+        panelsPerString: 12,
+        x: Math.max(0, pt.x - SCH.STR_W/2),
+        y: Math.max(0, pt.y - SCH.STR_H/2)
+      });
+      render();
+      return;
+    }
+    if (currentTool === 'add-combiner' && canvasEl && !nodeEl && !portEl) {
+      state.combiners.push({
+        id: nextCombId++,
+        label: `CB ${state.combiners.length + 1}`,
+        x: Math.max(0, pt.x - SCH.CMB_W/2),
+        y: Math.max(0, pt.y - SCH.CMB_H/2)
+      });
+      render();
+      return;
+    }
+
+    // ─── DELETE TOOL ───
+    if (currentTool === 'delete' && nodeEl) {
+      const type = nodeEl.dataset.type;
+      const id = parseInt(nodeEl.dataset.id);
+      if (type === 'group') {
+        state.groups = state.groups.filter(g => g.id !== id);
+      } else if (type === 'inverter') {
+        state.inverters = state.inverters.filter(x => x.id !== id);
+        for (const g of state.groups) if (g.inverterId === id) g.inverterId = null;
+      } else if (type === 'combiner') {
+        state.combiners = state.combiners.filter(c => c.id !== id);
+      }
+      render();
+      return;
+    }
+
+    // ─── CONNECT TOOL ───
+    if (currentTool === 'connect') {
+      if (nodeEl && nodeEl.dataset.type === 'group') {
+        const id = parseInt(nodeEl.dataset.id);
+        const g = state.groups.find(x => x.id === id);
+        connectPending = { id, label: g.label };
+        renderSchematic();
+        return;
+      }
+      if (portEl && connectPending) {
+        const groupId = connectPending.id;
+        const invId   = parseInt(portEl.dataset.invId);
+        const mIdx    = parseInt(portEl.dataset.mpptPort);
+        const g = state.groups.find(x => x.id === groupId);
+        if (g) {
+          g.inverterId = invId;
+          g.mpptIndex  = mIdx;
+        }
+        connectPending = null;
+        render();
+        return;
+      }
+      return;
+    }
+
+    // ─── SELECT TOOL — start drag ───
+    if (currentTool === 'select' && nodeEl && !portEl) {
+      const type = nodeEl.dataset.type;
+      const id = parseInt(nodeEl.dataset.id);
+      const obj =
+        type === 'group'    ? state.groups.find(x => x.id === id) :
+        type === 'inverter' ? state.inverters.find(x => x.id === id) :
+        type === 'combiner' ? state.combiners.find(x => x.id === id) : null;
+      if (!obj) return;
+      dragState = {
+        type, id,
+        startX: pt.x, startY: pt.y,
+        objStartX: obj.x, objStartY: obj.y
+      };
+      e.preventDefault();
+    }
+  });
+
+  svg.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const pt = svgPoint(svg, e);
+    const dx = pt.x - dragState.startX;
+    const dy = pt.y - dragState.startY;
+    const obj =
+      dragState.type === 'group'    ? state.groups.find(x => x.id === dragState.id) :
+      dragState.type === 'inverter' ? state.inverters.find(x => x.id === dragState.id) :
+      dragState.type === 'combiner' ? state.combiners.find(x => x.id === dragState.id) : null;
+    if (!obj) return;
+    obj.x = Math.max(0, Math.min(1000 - 50, dragState.objStartX + dx));
+    obj.y = Math.max(0, Math.min(500 - 50, dragState.objStartY + dy));
+    renderSchematic();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragState) {
+      dragState = null;
+      renderSchematic();
+    }
+  });
+}
+
+function render() {
+  renderInverters();
+  renderGroups();
+  renderResults();
+  renderSchematic();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//   EVENT BINDINGS
+// ════════════════════════════════════════════════════════════════════════════
+
+const sliderLabels = {
+  'monthly-kwh': ['lbl-kwh',  v => v],
+  'rate':        ['lbl-rate', v => `$${parseFloat(v).toFixed(2)}`],
+  'esc':         ['lbl-esc',  v => parseFloat(v).toFixed(1)],
+  'eff':         ['lbl-eff',  v => v],
+  'autonomy':    ['lbl-auto', v => parseFloat(v).toFixed(2)],
+  'bos':         ['lbl-bos',  v => v],
+  'itc':         ['lbl-itc',  v => v],
+};
+
+for (const [id, [lblId, fmt2]] of Object.entries(sliderLabels)) {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    document.getElementById(lblId).textContent = fmt2(el.value);
+    renderResults();
+  });
+}
+
+document.getElementById('psh').addEventListener('change', () => {
+  document.getElementById('custom-psh-field').style.display =
+    document.getElementById('psh').value === 'custom' ? 'block' : 'none';
+  renderResults();
+});
+document.getElementById('custom-psh').addEventListener('input', renderResults);
+
+document.getElementById('bat-model').addEventListener('change', () => {
+  document.getElementById('custom-bat-fields').style.display =
+    document.getElementById('bat-model').value === 'custom' ? 'block' : 'none';
+  renderResults();
+});
+['bat-kwh', 'bat-dod', 'bat-cost-custom'].forEach(id =>
+  document.getElementById(id).addEventListener('input', renderResults));
+
+document.getElementById('add-inverter').addEventListener('click', () => {
+  state.inverters.push({
+    id: nextInvId++,
+    model: 'sgs-12k18max',
+    label: `Inverter ${state.inverters.length + 1}`,
+  });
+  render();
+});
+
+document.getElementById('add-group').addEventListener('click', () => {
+  // Default-assign new groups to the first inverter (if any), pick the next free MPPT
+  const firstInv = state.inverters[0] || null;
+  let mpptIndex = 1;
+  if (firstInv) {
+    const inv = INVERTERS[firstInv.model];
+    const used = new Set(state.groups.filter(g => g.inverterId === firstInv.id).map(g => g.mpptIndex));
+    for (let i = 1; i <= inv.mpptCount; i++) {
+      if (!used.has(i)) { mpptIndex = i; break; }
+    }
+  }
+  state.groups.push({
+    id: nextGroupId++,
+    label: `String Group ${state.groups.length + 1}`,
+    panelKey: 'sgn-450',
+    inverterId: firstInv ? firstInv.id : null,
+    mpptIndex,
+    numStrings: 1,
+    panelsPerString: 12,
+  });
+  render();
+});
+
+// Initial render
+renderLibRef();
+render();
+bindSchematicHandlers();
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+        onload="renderResults()"
+        onerror="document.querySelector('.chart-wrap').textContent='Chart.js failed to load (offline?). All other data above is still correct.'">
+</script>
+
+</body>
+</html>
