@@ -681,6 +681,27 @@
       <input type="range" id="eff" min="70" max="97" step="1" value="85">
     </div>
 
+    <div class="section-title">Climate (NEC 690.7)</div>
+
+    <div class="field">
+      <label>Extreme cold ambient <span id="lbl-tmin">14</span>°F (for Voc-cold)</label>
+      <input type="range" id="t-min" min="-30" max="70" step="1" value="14">
+    </div>
+
+    <div class="field">
+      <label>Extreme hot ambient <span id="lbl-tmax">105</span>°F (for Vmp-hot/Isc-hot)</label>
+      <input type="range" id="t-max" min="70" max="125" step="1" value="105">
+    </div>
+
+    <div class="field">
+      <label>Module mounting (cell-temp adder)</label>
+      <select id="mounting">
+        <option value="35" selected>Roof — parallel, &lt; 6" gap (+35°C)</option>
+        <option value="30">Roof — tilt rack or &gt; 6" gap (+30°C)</option>
+        <option value="25">Ground, pole or carport (+25°C)</option>
+      </select>
+    </div>
+
     <div class="section-title">Battery Backup</div>
 
     <div class="field">
@@ -1199,16 +1220,32 @@ const stdBreaker = a => { for (const b of STD_BRK) if (b >= a) return `${b} A`; 
 
 function calcGroup(g) {
   const p = PANELS[g.panelKey];
+  const climate = getInputs();   // pulls tCellColdC, tCellHotC
+
+  // Temperature coefficients per panel category (overridable per-panel)
+  const catCoeffs = TEMP_COEFFS_BY_CAT[p.category] || TEMP_COEFFS_BY_CAT['Generic / Reference'];
+  const vocCoeff  = p.vocTempCoeff ?? catCoeffs.voc;   // %/°C (negative)
+  const pmpCoeff  = p.pmpTempCoeff ?? catCoeffs.pmp;   // %/°C (negative)
+  const iscCoeff  = p.iscTempCoeff ?? catCoeffs.isc;   // %/°C (positive)
+
+  // NEC 690.7: temperature-corrected per-panel values
+  const vocCold = p.voc * (1 + (vocCoeff / 100) * (climate.tCellColdC - 25));
+  const vmpHot  = p.vmp * (1 + (pmpCoeff / 100) * (climate.tCellHotC  - 25));
+  const iscHot  = p.isc * (1 + (iscCoeff / 100) * (climate.tCellHotC  - 25));
 
   const totalPanels    = g.numStrings * g.panelsPerString;
   const groupKwDC      = totalPanels * p.pmax / 1000;
-  const stringVoc      = g.panelsPerString * p.voc;
-  const stringVmp      = g.panelsPerString * p.vmp;
+  const stringVoc      = g.panelsPerString * p.voc;                  // STC
+  const stringVmp      = g.panelsPerString * p.vmp;                  // STC
+  const stringVocCold  = g.panelsPerString * vocCold;                // ← NEC 690.7 critical for inverter safety
+  const stringVmpHot   = g.panelsPerString * vmpHot;                 // ← NEC 690.7 critical for MPPT tracking
   const stringCurrent  = p.imp;
   const stringIsc      = p.isc;
+  const stringIscHot   = iscHot;
   const mpptCurrentImp = g.numStrings * p.imp;
-  const mpptCurrentIsc = g.numStrings * p.isc;
-  const mpptCurrentNec = mpptCurrentIsc * 1.25;   // NEC 690.8(A)
+  const mpptCurrentIsc = g.numStrings * p.isc;                       // STC
+  const mpptCurrentIscHot = g.numStrings * iscHot;                   // Temp-corrected
+  const mpptCurrentNec = mpptCurrentIscHot * 1.25;                   // NEC 690.8(A) — uses hot Isc
 
   // Look up the physical inverter this group is assigned to
   const invDef = state.inverters.find(x => x.id === g.inverterId);
@@ -1250,23 +1287,25 @@ function calcGroup(g) {
     if (p.voc > inv.maxVdc)
       checks.push({ ok: false, msg: `Panel Voc (${fmt(p.voc,1)}V) exceeds microinverter max (${inv.maxVdc}V)` });
   } else {
-    // Per-string voltage checks
-    if (stringVoc > inv.maxVdc) {
-      checks.push({ ok: false, msg: `String Voc (${fmt(stringVoc,1)}V) EXCEEDS inverter max DC (${inv.maxVdc}V) — risk of damage` });
-    } else if (stringVoc > inv.maxVdc * 0.95) {
-      checks.push({ ok: true,  msg: `String Voc (${fmt(stringVoc,1)}V) near max — verify cold-weather Voc margin` });
-    }
-    if (stringVmp < inv.mpptMinV) {
-      checks.push({ ok: false, msg: `String Vmp (${fmt(stringVmp,1)}V) BELOW MPPT min (${inv.mpptMinV}V)` });
-    } else if (stringVmp > inv.mpptMaxV) {
-      checks.push({ ok: false, msg: `String Vmp (${fmt(stringVmp,1)}V) ABOVE MPPT max (${inv.mpptMaxV}V)` });
+    // ── NEC 690.7: COLD-Voc check (critical — exceeding kills the inverter) ──
+    if (stringVocCold > inv.maxVdc) {
+      checks.push({ ok: false, msg: `String Voc at ${fmt(climate.tMinF,0)}°F (${fmt(stringVocCold,1)}V cold) EXCEEDS inverter max DC (${inv.maxVdc}V) — STC Voc is ${fmt(stringVoc,1)}V — REDUCE STRING LENGTH` });
+    } else if (stringVocCold > inv.maxVdc * 0.95) {
+      checks.push({ ok: true,  msg: `String Voc at cold (${fmt(stringVocCold,1)}V at ${fmt(climate.tMinF,0)}°F) within 5% of inverter limit (${inv.maxVdc}V) — verify with absolute record-low temp` });
     }
 
-    // MPPT input current
-    if (mpptCurrentIsc > inv.maxMpptCurrent) {
-      checks.push({ ok: false, msg: `MPPT input Isc (${fmt(mpptCurrentIsc,1)}A) EXCEEDS inverter MPPT max (${inv.maxMpptCurrent}A) — reduce parallel strings on this MPPT` });
-    } else if (mpptCurrentIsc > inv.maxMpptCurrent * 0.95) {
-      checks.push({ ok: true,  msg: `MPPT input Isc (${fmt(mpptCurrentIsc,1)}A) within ${Math.round((1 - mpptCurrentIsc/inv.maxMpptCurrent)*100)}% of inverter limit (${inv.maxMpptCurrent}A) — verify cold-weather Isc` });
+    // ── NEC 690.7: HOT-Vmp check (loses MPPT tracking on hot afternoons) ──
+    if (stringVmpHot < inv.mpptMinV) {
+      checks.push({ ok: false, msg: `String Vmp at ${fmt(cToF(climate.tCellHotC),0)}°F cell temp (${fmt(stringVmpHot,1)}V hot) BELOW MPPT min (${inv.mpptMinV}V) — will drop out of MPPT tracking on hot days. STC Vmp is ${fmt(stringVmp,1)}V` });
+    } else if (stringVmp > inv.mpptMaxV) {
+      checks.push({ ok: false, msg: `String Vmp at STC (${fmt(stringVmp,1)}V) ABOVE MPPT max (${inv.mpptMaxV}V)` });
+    }
+
+    // ── MPPT input current (HOT Isc since current rises with temp) ──
+    if (mpptCurrentIscHot > inv.maxMpptCurrent) {
+      checks.push({ ok: false, msg: `MPPT input Isc at hot (${fmt(mpptCurrentIscHot,1)}A) EXCEEDS inverter MPPT max (${inv.maxMpptCurrent}A) — reduce parallel strings on this MPPT` });
+    } else if (mpptCurrentIscHot > inv.maxMpptCurrent * 0.95) {
+      checks.push({ ok: true,  msg: `MPPT input Isc at hot (${fmt(mpptCurrentIscHot,1)}A) within ${Math.round((1 - mpptCurrentIscHot/inv.maxMpptCurrent)*100)}% of inverter limit (${inv.maxMpptCurrent}A)` });
     }
 
     // MPPT index sanity checks
@@ -1293,6 +1332,12 @@ function calcGroup(g) {
   return {
     panel: p, inv, invDef, invDefLabel: invDef.label,
     totalPanels, groupKwDC, stringVoc, stringVmp,
+    // NEC 690.7 temperature-corrected values
+    vocCold, vmpHot, iscHot,
+    stringVocCold, stringVmpHot, stringIscHot,
+    mpptCurrentIscHot,
+    tCellColdF: cToF(climate.tCellColdC), tCellHotF: cToF(climate.tCellHotC),
+    vocCoeff, pmpCoeff, iscCoeff,
     stringCurrent, stringIsc, mpptCurrentImp, mpptCurrentIsc, mpptCurrentNec,
     totalInvKw, totalInvPvKw, dcAcRatio, acCurrentPerInv,
     peerGroups, peerStrings, peerKwDC, isShared,
@@ -1413,6 +1458,16 @@ function getInputs() {
     batKwh = parseFloat(k); batDod = parseFloat(d) / 100; batCost = parseFloat(c);
   }
 
+  const tMinF       = parseFloat(document.getElementById('t-min').value);
+  const tMaxF       = parseFloat(document.getElementById('t-max').value);
+  const mountAdderC = parseFloat(document.getElementById('mounting').value);
+  const tMinC       = fToC(tMinF);
+  const tMaxC       = fToC(tMaxF);
+  // NEC 690.7: cold-Voc uses ambient (no solar heating at dawn)
+  // For Vmp-hot/Isc-hot, cell temp is ambient + solar-heating adder per mounting
+  const tCellColdC  = tMinC;
+  const tCellHotC   = tMaxC + mountAdderC;
+
   return {
     monthlyKwh: parseFloat(document.getElementById('monthly-kwh').value),
     psh,
@@ -1423,6 +1478,7 @@ function getInputs() {
     autonomy: parseFloat(document.getElementById('autonomy').value),
     bosPct:  parseFloat(document.getElementById('bos').value) / 100,
     itcPct:  parseFloat(document.getElementById('itc').value) / 100,
+    tMinF, tMaxF, tMinC, tMaxC, mountAdderC, tCellColdC, tCellHotC,
   };
 }
 
@@ -1622,12 +1678,17 @@ function renderGroups() {
       : '';
 
     const mpptRows = r.inv ? `
-          <tr><td>String Voc</td><td class="${r.stringVoc > r.inv.maxVdc ? 'fail' : 'ok'}">${fmt(r.stringVoc, 1)} V <small>(max ${r.inv.maxVdc})</small></td></tr>
-          <tr><td>String Vmp</td><td class="${(r.stringVmp < r.inv.mpptMinV || r.stringVmp > r.inv.mpptMaxV) ? 'fail' : 'ok'}">${fmt(r.stringVmp, 1)} V <small>(MPPT ${r.inv.mpptMinV}–${r.inv.mpptMaxV})</small></td></tr>
+          <tr><td colspan="2" style="background:rgba(244,164,38,0.08);color:var(--amber);font-weight:600;font-size:0.7rem;padding:3px 6px;text-transform:uppercase;letter-spacing:0.05em">STC values (25 °C)</td></tr>
+          <tr><td>String Voc (STC)</td><td class="${r.stringVoc > r.inv.maxVdc ? 'fail' : 'ok'}">${fmt(r.stringVoc, 1)} V</td></tr>
+          <tr><td>String Vmp (STC)</td><td class="${(r.stringVmp < r.inv.mpptMinV || r.stringVmp > r.inv.mpptMaxV) ? 'fail' : 'ok'}">${fmt(r.stringVmp, 1)} V</td></tr>
           <tr><td>Per-string current <small>(Imp / Isc)</small></td><td>${fmt(r.stringCurrent, 2)} A / ${fmt(r.stringIsc, 2)} A</td></tr>
-          <tr><td><b style="color:var(--amber2)">MPPT input — Imp</b> <small>(${g.numStrings}∥)</small></td><td><b>${fmt(r.mpptCurrentImp, 2)} A</b></td></tr>
-          <tr><td><b style="color:var(--amber2)">MPPT input — Isc</b></td><td class="${r.mpptCurrentIsc > r.inv.maxMpptCurrent ? 'fail' : (r.mpptCurrentIsc > r.inv.maxMpptCurrent * 0.95 ? '' : 'ok')}"><b>${fmt(r.mpptCurrentIsc, 2)} A</b> <small>(inv. max ${r.inv.maxMpptCurrent})</small></td></tr>
-          <tr><td>OCPD sizing <small>(NEC × 1.25)</small></td><td>${fmt(r.mpptCurrentNec, 2)} A</td></tr>
+          <tr><td colspan="2" style="background:rgba(93,173,226,0.10);color:#5dade2;font-weight:600;font-size:0.7rem;padding:3px 6px;text-transform:uppercase;letter-spacing:0.05em">❄ Cold (NEC 690.7 @ ${fmt(r.tCellColdF,0)}°F)</td></tr>
+          <tr><td><b style="color:#5dade2">String Voc-Cold</b></td><td class="${r.stringVocCold > r.inv.maxVdc ? 'fail' : (r.stringVocCold > r.inv.maxVdc * 0.95 ? '' : 'ok')}"><b>${fmt(r.stringVocCold, 1)} V</b> <small>(inv. max ${r.inv.maxVdc} V)</small></td></tr>
+          <tr><td colspan="2" style="background:rgba(231,76,60,0.10);color:#e74c3c;font-weight:600;font-size:0.7rem;padding:3px 6px;text-transform:uppercase;letter-spacing:0.05em">🔥 Hot (NEC 690.7 @ ${fmt(r.tCellHotF,0)}°F cell)</td></tr>
+          <tr><td><b style="color:#e74c3c">String Vmp-Hot</b></td><td class="${r.stringVmpHot < r.inv.mpptMinV ? 'fail' : (r.stringVmpHot < r.inv.mpptMinV * 1.10 ? '' : 'ok')}"><b>${fmt(r.stringVmpHot, 1)} V</b> <small>(MPPT min ${r.inv.mpptMinV} V)</small></td></tr>
+          <tr><td><b style="color:#e74c3c">MPPT input Isc-Hot</b> <small>(${g.numStrings}∥)</small></td><td class="${r.mpptCurrentIscHot > r.inv.maxMpptCurrent ? 'fail' : (r.mpptCurrentIscHot > r.inv.maxMpptCurrent * 0.95 ? '' : 'ok')}"><b>${fmt(r.mpptCurrentIscHot, 2)} A</b> <small>(inv. max ${r.inv.maxMpptCurrent} A)</small></td></tr>
+          <tr><td>OCPD sizing <small>(NEC 690.8 × 1.25 of Isc-hot)</small></td><td>${fmt(r.mpptCurrentNec, 2)} A</td></tr>
+          <tr><td colspan="2" style="font-size:0.66rem;color:var(--muted);padding:4px 6px;font-style:italic">Coeffs: Voc ${r.vocCoeff}%/°C · Vmp ${r.pmpCoeff}%/°C · Isc +${r.iscCoeff}%/°C</td></tr>
           <tr><td>Inverter AC capacity</td><td>${fmt(r.totalInvKw, 1)} kW</td></tr>
           <tr><td>DC:AC on this inverter</td><td>${fmt(r.dcAcRatio, 2)}</td></tr>
     ` : '';
@@ -2070,6 +2131,20 @@ const SCH = {
 
 // Current view mode for the schematic — block (default) or panels
 let viewMode = 'block';
+
+// ─── NEC 690.7 Temperature Correction ────────────────────────────────────────
+// Typical %/°C coefficients per panel category. Override per-panel by adding
+// vocTempCoeff / pmpTempCoeff / iscTempCoeff fields to the PANELS entry.
+const TEMP_COEFFS_BY_CAT = {
+  'SunGold N-type Bifacial':  { voc: -0.25, pmp: -0.29, isc: 0.045 },
+  'SunGold PERC Bifacial':    { voc: -0.27, pmp: -0.34, isc: 0.048 },
+  'SunGold Mono PERC':        { voc: -0.27, pmp: -0.35, isc: 0.048 },
+  'SunGold Small / Portable': { voc: -0.30, pmp: -0.38, isc: 0.050 },
+  'Generic / Reference':      { voc: -0.28, pmp: -0.35, isc: 0.048 },
+  'Custom':                   { voc: -0.28, pmp: -0.35, isc: 0.048 },
+};
+const fToC = f => (f - 32) * 5 / 9;
+const cToF = c => c * 9 / 5 + 32;
 
 let currentTool   = 'select';
 let connectPending = null;   // { id, label } when first-clicked a string while in connect mode
@@ -2806,6 +2881,9 @@ function captureInputs() {
     rate:          document.getElementById('rate').value,
     esc:           document.getElementById('esc').value,
     eff:           document.getElementById('eff').value,
+    tMin:          document.getElementById('t-min').value,
+    tMax:          document.getElementById('t-max').value,
+    mounting:      document.getElementById('mounting').value,
     batModel:      document.getElementById('bat-model').value,
     batKwh:        document.getElementById('bat-kwh').value,
     batDod:        document.getElementById('bat-dod').value,
@@ -2821,6 +2899,8 @@ function applyInputs(inp) {
   set('monthly-kwh', inp.monthlyKwh);  set('psh', inp.psh);
   set('custom-psh', inp.customPsh);    set('rate', inp.rate);
   set('esc', inp.esc);                 set('eff', inp.eff);
+  set('t-min', inp.tMin);              set('t-max', inp.tMax);
+  set('mounting', inp.mounting);
   set('bat-model', inp.batModel);      set('bat-kwh', inp.batKwh);
   set('bat-dod', inp.batDod);          set('bat-cost-custom', inp.batCostCustom);
   set('autonomy', inp.autonomy);       set('bos', inp.bos);
@@ -3035,18 +3115,27 @@ const sliderLabels = {
   'rate':        ['lbl-rate', v => `$${parseFloat(v).toFixed(2)}`],
   'esc':         ['lbl-esc',  v => parseFloat(v).toFixed(1)],
   'eff':         ['lbl-eff',  v => v],
+  't-min':       ['lbl-tmin', v => v],
+  't-max':       ['lbl-tmax', v => v],
   'autonomy':    ['lbl-auto', v => parseFloat(v).toFixed(2)],
   'bos':         ['lbl-bos',  v => v],
   'itc':         ['lbl-itc',  v => v],
 };
 
+// Climate sliders affect per-group calculations (cold-Voc / hot-Vmp / hot-Isc),
+// so they need a full render. Other sliders only affect aggregate totals.
+const FULL_RENDER_SLIDERS = new Set(['t-min', 't-max', 'eff']);
 for (const [id, [lblId, fmt2]] of Object.entries(sliderLabels)) {
   const el = document.getElementById(id);
   el.addEventListener('input', () => {
     document.getElementById(lblId).textContent = fmt2(el.value);
-    renderResults();
+    if (FULL_RENDER_SLIDERS.has(id)) render();
+    else renderResults();
   });
 }
+
+// Mounting dropdown also drives cell-temperature → full render
+document.getElementById('mounting').addEventListener('change', render);
 
 document.getElementById('psh').addEventListener('change', () => {
   document.getElementById('custom-psh-field').style.display =
