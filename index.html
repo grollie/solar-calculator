@@ -3198,40 +3198,60 @@ document.getElementById('btn-svg').addEventListener('click', exportSchematic);
 document.getElementById('btn-json').addEventListener('click', exportSnapshot);
 
 // ════════════════════════════════════════════════════════════════════════════
-//   EXTERNAL PANEL CATALOG (EG4 scrape — ~1,269 panels, 76 manufacturers)
+//   EXTERNAL CATALOGS (EG4 scrape — panels + inverters)
 // ════════════════════════════════════════════════════════════════════════════
-async function loadExternalPanels() {
+async function fetchCatalog(filename) {
+  const r = await fetch(filename, { cache: 'force-cache' });
+  if (!r.ok) throw new Error(`${filename}: HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadExternalCatalogs() {
   const badge = document.getElementById('panel-catalog-badge');
-  try {
-    const r = await fetch('panels_eg4.json', { cache: 'force-cache' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    if (!data.panels || typeof data.panels !== 'object') throw new Error('Invalid catalog format');
-    Object.assign(PANELS, data.panels);
-    if (badge) {
-      const total   = Object.keys(PANELS).length;
-      const sources = new Set(Object.values(PANELS).map(p => p.category)).size;
-      badge.style.color = 'var(--green2)';
-      badge.style.fontWeight = '600';
-      badge.textContent = `✓ ${total} panels across ${sources} manufacturers`;
-    }
-    renderLibRef();
-    render();
-    console.log(`Loaded ${data.count || 'unknown'} external panels from ${data.source || 'catalog'}`);
-  } catch (err) {
-    console.warn('External panel catalog not loaded:', err.message);
-    if (badge) {
-      badge.style.color = 'var(--muted)';
-      badge.textContent = `${Object.keys(PANELS).length} panels (built-in only)`;
-    }
+  let panelMsg = '', invMsg = '';
+
+  // Panels and inverters fetched in parallel
+  const [panelsResult, invertersResult] = await Promise.allSettled([
+    fetchCatalog('panels_eg4.json'),
+    fetchCatalog('inverters_eg4.json'),
+  ]);
+
+  if (panelsResult.status === 'fulfilled' && panelsResult.value?.panels) {
+    Object.assign(PANELS, panelsResult.value.panels);
+    const total   = Object.keys(PANELS).length;
+    const sources = new Set(Object.values(PANELS).map(p => p.category)).size;
+    panelMsg = `${total} panels / ${sources} mfrs`;
+    console.log(`Loaded ${panelsResult.value.count || '?'} EG4 panels`);
+  } else {
+    console.warn('Panel catalog not loaded:', panelsResult.reason?.message || 'unknown');
+    panelMsg = `${Object.keys(PANELS).length} panels (built-in only)`;
   }
+
+  if (invertersResult.status === 'fulfilled' && invertersResult.value?.inverters) {
+    Object.assign(INVERTERS, invertersResult.value.inverters);
+    const total = Object.keys(INVERTERS).length - 1; // exclude "custom"
+    invMsg = `${total} inverters`;
+    console.log(`Loaded ${invertersResult.value.count || '?'} EG4 inverters`);
+  } else {
+    console.warn('Inverter catalog not loaded:', invertersResult.reason?.message || 'unknown');
+    invMsg = `${Object.keys(INVERTERS).length - 1} inverters (built-in only)`;
+  }
+
+  if (badge) {
+    badge.style.color = 'var(--green2)';
+    badge.style.fontWeight = '600';
+    badge.textContent = `✓ ${panelMsg} · ${invMsg}`;
+  }
+
+  renderLibRef();
+  render();
 }
 
 // Initial render
 renderLibRef();
 render();
 bindSchematicHandlers();
-loadExternalPanels();   // async — merges into PANELS and re-renders when ready
+loadExternalCatalogs();   // async — merges into PANELS/INVERTERS and re-renders when ready
 </script>
 
 <!-- Chart.js CDN -->
