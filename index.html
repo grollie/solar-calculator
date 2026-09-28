@@ -1202,8 +1202,9 @@ const state = {
 const fmt   = (n, dec=1) => n.toLocaleString('en-US', { maximumFractionDigits: dec, minimumFractionDigits: dec });
 const fmtI  = n => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 const fmtK  = n => n >= 1000 ? `${fmt(n/1000, 1)}k` : fmt(n, 0);
-const fmtD  = n => `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-const fmtD2 = n => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+// Null-safe: imported catalog items with no published price (cost: null) render as "—" instead of throwing
+const fmtD  = n => (n == null || !isFinite(n)) ? '—' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const fmtD2 = n => (n == null || !isFinite(n)) ? '—' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
 const AWG_TBL = [
   [15,'14'],[20,'12'],[30,'10'],[40,'8'],[55,'6'],[75,'4'],[95,'3'],
@@ -1398,8 +1399,10 @@ function calcAll() {
     invLineItems[invDef.model].qty += 1;
   }
 
-  const panelHardware = Object.values(panelLineItems).reduce((s, x) => s + x.qty * x.unit, 0);
-  const invHardware   = Object.values(invLineItems).reduce((s, x) => s + x.qty * x.unit, 0);
+  // Items with no published price (unit == null) count as $0 in totals and are flagged in the BOM
+  const panelHardware = Object.values(panelLineItems).reduce((s, x) => s + x.qty * (x.unit ?? 0), 0);
+  const invHardware   = Object.values(invLineItems).reduce((s, x) => s + x.qty * (x.unit ?? 0), 0);
+  const unpricedItems = [...Object.values(panelLineItems), ...Object.values(invLineItems)].filter(x => x.unit == null);
   const batHardware   = numBat * inp.batCost;
   const rackCost      = totalPanels * 45;
   const monCost       = 350;
@@ -1431,7 +1434,7 @@ function calcAll() {
     totalPanels, totalKwDC, totalInvKwAC, totalInverters, totalAcCurrent, mainBkFeed, allValid,
     dailyKwh, reqBatKwh, reqNumBat, numBat, totalBatKwh, batShortage, batExcess, batStatus,
     annualKwh, annualSavings,
-    panelLineItems, invLineItems,
+    panelLineItems, invLineItems, unpricedItems,
     panelHardware, invHardware, batHardware, rackCost, monCost, miscCost, permitCost,
     hardwareCost, bosCost, grossCost, itcAmount, netCost, simplePayback, npv, cumFlow
   };
@@ -2008,12 +2011,17 @@ function renderResults() {
 
   // ── BOM Table ──
   let bom = '';
-  Object.values(r.panelLineItems).forEach(item => {
-    bom += `<tr><td>${item.name}</td><td class="num">${item.qty}</td><td class="num">${fmtD(item.unit)}</td><td class="num">${fmtD(item.qty * item.unit)}</td></tr>`;
-  });
-  Object.values(r.invLineItems).forEach(item => {
-    bom += `<tr><td>${item.name}</td><td class="num">${item.qty}</td><td class="num">${fmtD(item.unit)}</td><td class="num">${fmtD(item.qty * item.unit)}</td></tr>`;
-  });
+  const bomRow = item => {
+    const nameCell = item.unit == null
+      ? `${item.name} <span style="color:var(--amber2);font-size:0.7rem" title="No published price in the imported catalog — set one via Custom panel/inverter, or track externally">⚠ no price</span>`
+      : item.name;
+    return `<tr><td>${nameCell}</td><td class="num">${item.qty}</td><td class="num">${fmtD(item.unit)}</td><td class="num">${fmtD(item.qty * (item.unit ?? 0))}</td></tr>`;
+  };
+  Object.values(r.panelLineItems).forEach(item => { bom += bomRow(item); });
+  Object.values(r.invLineItems).forEach(item => { bom += bomRow(item); });
+  if (r.unpricedItems.length > 0) {
+    bom += `<tr><td colspan="4" style="color:var(--amber2);font-size:0.75rem;padding:6px 8px;background:rgba(244,164,38,0.06)">⚠ ${r.unpricedItems.length} line item${r.unpricedItems.length === 1 ? '' : 's'} above ${r.unpricedItems.length === 1 ? 'has' : 'have'} no published price (imported catalog) — counted as $0 in the totals below. Verify pricing before quoting.</td></tr>`;
+  }
   bom += `
     <tr><td>Battery Units</td><td class="num">${r.numBat}</td><td class="num">${fmtD(inp.batCost)}</td><td class="num">${fmtD(r.batHardware)}</td></tr>
     <tr><td>Mounting / Racking</td><td class="num">${r.totalPanels}</td><td class="num">$45</td><td class="num">${fmtD(r.rackCost)}</td></tr>
@@ -2971,9 +2979,9 @@ function exportBOM() {
   const inp = r.inp;
   const rows = [['Component', 'Quantity', 'Unit Cost (USD)', 'Total (USD)', 'Notes']];
   for (const item of Object.values(r.panelLineItems))
-    rows.push([item.name, item.qty, item.unit.toFixed(2), (item.qty * item.unit).toFixed(2), 'Solar panel']);
+    rows.push([item.name, item.qty, item.unit == null ? '' : item.unit.toFixed(2), (item.qty * (item.unit ?? 0)).toFixed(2), item.unit == null ? 'Solar panel — NO PUBLISHED PRICE' : 'Solar panel']);
   for (const item of Object.values(r.invLineItems))
-    rows.push([item.name, item.qty, item.unit.toFixed(2), (item.qty * item.unit).toFixed(2), 'Inverter']);
+    rows.push([item.name, item.qty, item.unit == null ? '' : item.unit.toFixed(2), (item.qty * (item.unit ?? 0)).toFixed(2), item.unit == null ? 'Inverter — NO PUBLISHED PRICE' : 'Inverter']);
   const batSel = document.getElementById('bat-model');
   const batName = batSel.options[batSel.selectedIndex].text.split(' (')[0];
   rows.push([batName, r.numBat, inp.batCost.toFixed(2), r.batHardware.toFixed(2), 'Battery — ' + inp.batKwh + ' kWh nominal']);
