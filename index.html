@@ -1206,6 +1206,35 @@ const fmtK  = n => n >= 1000 ? `${fmt(n/1000, 1)}k` : fmt(n, 0);
 const fmtD  = n => (n == null || !isFinite(n)) ? '—' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const fmtD2 = n => (n == null || !isFinite(n)) ? '—' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
+// ─── Panel <select> options cache ─────────────────────────────────────────
+// The panel library is ~1,300 entries. Build the <optgroup> HTML once and let each
+// group's <select> pull it in lazily on focus, so render() never rebuilds 7k+ options.
+let PANEL_OPTS_CACHE = null;
+function getPanelOptionsHtml() {
+  if (PANEL_OPTS_CACHE) return PANEL_OPTS_CACHE;
+  const byCat = {};
+  for (const [k, p] of Object.entries(PANELS)) {
+    const c = p.category || 'Other';
+    (byCat[c] = byCat[c] || []).push({ k, p });
+  }
+  PANEL_OPTS_CACHE = Object.entries(byCat).map(([cat, list]) =>
+    `<optgroup label="${cat}">` + list.map(({ k, p }) =>
+      `<option value="${k}">${p.name} (${p.pmax}W)</option>`
+    ).join('') + `</optgroup>`
+  ).join('');
+  return PANEL_OPTS_CACHE;
+}
+
+// Trailing debounce for slider-driven re-renders (sliders fire `input` continuously during a drag)
+function debounce(fn, ms) {
+  let t = null;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// AC output current for an inverter model. Returns 0 for DC-only units
+// (e.g. the EG4 MPPT 100-48HV charge controller has acV: 0) instead of 0/0 = NaN.
+const acAmps = inv => (inv && inv.acV > 0) ? (inv.ratedKw * 1000) / inv.acV : 0;
+
 const AWG_TBL = [
   [15,'14'],[20,'12'],[30,'10'],[40,'8'],[55,'6'],[75,'4'],[95,'3'],
   [110,'2'],[130,'1'],[150,'1/0'],[175,'2/0'],[200,'3/0'],[230,'4/0']
@@ -1278,7 +1307,7 @@ function calcGroup(g) {
   const totalInvKw      = inv.ratedKw;
   const totalInvPvKw    = inv.maxPvKw;
   const dcAcRatio       = totalInvKw > 0 ? peerKwDC / totalInvKw : 0;
-  const acCurrentPerInv = (inv.ratedKw * 1000) / inv.acV;
+  const acCurrentPerInv = acAmps(inv);
 
   // Validation
   const checks = [];
@@ -1361,7 +1390,7 @@ function calcAll() {
   const totalInvKwAC   = state.inverters.reduce((s, invDef) => s + INVERTERS[invDef.model].ratedKw, 0);
   const totalAcCurrent = state.inverters.reduce((s, invDef) => {
     const inv = INVERTERS[invDef.model];
-    return s + (inv.ratedKw * 1000) / inv.acV;
+    return s + acAmps(inv);
   }, 0);
   const allValid = groups.every(x => x.r.valid) && state.inverters.length > 0;
 
@@ -1636,17 +1665,9 @@ function renderGroups() {
     const card = document.createElement('div');
     card.className = 'group-card' + (r.valid ? '' : ' invalid');
 
-    // Build panel <optgroup>s by category for the now-much-larger library
-    const panelsByCat = {};
-    for (const [k, p] of Object.entries(PANELS)) {
-      const c = p.category || 'Other';
-      (panelsByCat[c] = panelsByCat[c] || []).push({ k, p });
-    }
-    const panelOpts = Object.entries(panelsByCat).map(([cat, list]) =>
-      `<optgroup label="${cat}">` + list.map(({ k, p }) =>
-        `<option value="${k}" ${k === g.panelKey ? 'selected' : ''}>${p.name} (${p.pmax}W)</option>`
-      ).join('') + `</optgroup>`
-    ).join('');
+    // Lazy panel <select>: render only the current choice now; the full ~1,300-option
+    // list is swapped in on focus/mousedown (see the data-lazy handler below).
+    const panelOpts = `<option value="${g.panelKey}" selected>${r.panel.name} (${r.panel.pmax}W)</option>`;
 
     // "Assigned to" dropdown — list all physical inverters
     let invAssignOpts = '<option value="">— Choose inverter —</option>';
@@ -1710,7 +1731,7 @@ function renderGroups() {
       <div class="group-grid">
         <div class="field full">
           <label>Panel model</label>
-          <select data-id="${g.id}" data-key="panelKey">${panelOpts}</select>
+          <select data-id="${g.id}" data-key="panelKey" data-lazy="panel">${panelOpts}</select>
         </div>
         <div class="field full">
           <label>Assigned to (physical inverter)</label>
@@ -1744,6 +1765,19 @@ function renderGroups() {
       </div>
     `;
     list.appendChild(card);
+  });
+
+  // Populate the full panel list only when a select is actually opened or focused
+  list.querySelectorAll('select[data-lazy="panel"]').forEach(sel => {
+    const load = () => {
+      if (sel.dataset.loaded) return;
+      const cur = sel.value;
+      sel.innerHTML = getPanelOptionsHtml();
+      sel.value = cur;
+      sel.dataset.loaded = '1';
+    };
+    sel.addEventListener('focus', load);
+    sel.addEventListener('mousedown', load);
   });
 
   // Event handlers for group cards
@@ -1984,7 +2018,7 @@ function renderResults() {
   // AC output rows — one per physical inverter
   state.inverters.forEach((invDef) => {
     const inv      = INVERTERS[invDef.model];
-    const acCur    = (inv.ratedKw * 1000) / inv.acV;
+    const acCur    = acAmps(inv);
     const acCurNec = acCur * 1.25;
     wireRows += `
       <tr>
@@ -2666,7 +2700,7 @@ function renderSchematic() {
       <text x="${SCH.INV_W/2}" y="54" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${fmt(invDef.ratedKw,1)} kW · ${invDef.maxVdc}V DC max</text>
       <line x1="14" y1="62" x2="${SCH.INV_W-14}" y2="62" stroke="#2e4a66" stroke-width="1"/>
       <text x="${SCH.INV_W/2}" y="78" text-anchor="middle" fill="#8fa3bc" font-size="9" font-family="Arial">${invDef.mpptCount} MPPT · ${invDef.maxMpptCurrent}A per MPPT</text>
-      <text x="${SCH.INV_W/2}" y="${SCH.INV_H-8}" text-anchor="middle" fill="#f7bf6a" font-size="9" font-weight="600" font-family="Arial">AC out ${fmt((invDef.ratedKw*1000)/invDef.acV, 1)} A @ ${invDef.acV}V</text>
+      <text x="${SCH.INV_W/2}" y="${SCH.INV_H-8}" text-anchor="middle" fill="#f7bf6a" font-size="9" font-weight="600" font-family="Arial">${invDef.acV > 0 ? `AC out ${fmt(acAmps(invDef), 1)} A @ ${invDef.acV}V` : 'DC only · no AC output'}</text>
       ${ports}
     `);
     svg.appendChild(node);
@@ -3133,12 +3167,14 @@ const sliderLabels = {
 // Climate sliders affect per-group calculations (cold-Voc / hot-Vmp / hot-Isc),
 // so they need a full render. Other sliders only affect aggregate totals.
 const FULL_RENDER_SLIDERS = new Set(['t-min', 't-max', 'eff']);
+const debouncedRender        = debounce(render, 60);
+const debouncedRenderResults = debounce(renderResults, 60);
 for (const [id, [lblId, fmt2]] of Object.entries(sliderLabels)) {
   const el = document.getElementById(id);
   el.addEventListener('input', () => {
-    document.getElementById(lblId).textContent = fmt2(el.value);
-    if (FULL_RENDER_SLIDERS.has(id)) render();
-    else renderResults();
+    document.getElementById(lblId).textContent = fmt2(el.value);   // label tracks the thumb instantly
+    if (FULL_RENDER_SLIDERS.has(id)) debouncedRender();            // heavy re-render waits for the drag to pause
+    else debouncedRenderResults();
   });
 }
 
@@ -3226,6 +3262,7 @@ async function loadExternalCatalogs() {
 
   if (panelsResult.status === 'fulfilled' && panelsResult.value?.panels) {
     Object.assign(PANELS, panelsResult.value.panels);
+    PANEL_OPTS_CACHE = null;   // rebuild the cached <select> option list on next open
     const total   = Object.keys(PANELS).length;
     const sources = new Set(Object.values(PANELS).map(p => p.category)).size;
     panelMsg = `${total} panels / ${sources} mfrs`;
